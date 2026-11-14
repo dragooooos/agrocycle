@@ -30,6 +30,8 @@ export interface SourceState {
   status: SourceStatusKind;
   value?: unknown;
   error?: string;
+  /** Error class name, e.g. "NoSoilError" (used for the land check). */
+  kind?: string;
   startedAt?: number;
 }
 
@@ -205,7 +207,11 @@ export function startSource(id: SourceId, lat: number, lon: number): Promise<voi
     .catch((reason: unknown) => {
       // Missing API key / proxy is a configuration state, not a failure.
       const notConfigured = reason instanceof Error && reason.name === "NotConfiguredError";
-      states.set(key, { status: notConfigured ? "na" : "error", error: describeError(reason) });
+      states.set(key, {
+        status: notConfigured ? "na" : "error",
+        error: describeError(reason),
+        kind: reason instanceof Error ? reason.name : undefined,
+      });
     })
     .finally(() => {
       promises.delete(key);
@@ -246,4 +252,10 @@ export function sourceStatuses(snapshot: Record<SourceId, SourceState>): SourceS
               : "Loading in the background…",
       };
     });
+}
+
+/** True when SoilGrids answered and has no soil mapped at this point (water, ice or built-up land). */
+export function hasNoSoil(lat: number, lon: number) {
+  const soil = getSourceState("soil", lat, lon);
+  return soil.status === "error" && soil.kind === "NoSoilError";
 }

@@ -22,7 +22,8 @@ export const ALL_LAYERS = LAYERS.map((layer) => layer.id);
 export const DEFAULT_LAYERS: LayerId[] = ["moisture", "temperature", "rain"];
 
 export function sourcesFor(layers: LayerId[]): SourceId[] {
-  const set = new Set<SourceId>(["power", "country"]); // climate is always needed for crop recommendations
+  // Climate is always needed for crop recommendations; soil (fast) tells us whether there is land at all.
+  const set = new Set<SourceId>(["power", "soil", "country"]);
   layers.forEach((id) => LAYERS.find((layer) => layer.id === id)?.sources.forEach((source) => set.add(source)));
   return [...set];
 }

@@ -200,7 +200,9 @@ export async function fetchSoilGrids(
   };
 
   if (Object.values(profile).every((value) => value === null)) {
-    throw new Error("No soil data at this location (water, urban or outside coverage)");
+    const error = new Error("No soil mapped at this point (water, glacier, built-up area or outside coverage)");
+    error.name = "NoSoilError";
+    throw error;
   }
   return profile;
 }

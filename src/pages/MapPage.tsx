@@ -33,6 +33,7 @@ import MapView from "../components/MapView";
 import type { AreaUnit, FarmerConstraints, FieldSelection, IndicatorId, PriorityId } from "../types";
 import { CROP_BY_ID, SELECTABLE_CROPS } from "../data/crops";
 import { readIndicators } from "../data/layers";
+import { getSourceState, hasNoSoil, startSource } from "../services/sourceStore";
 
 const readConstraints = (): FarmerConstraints => {
   try {
@@ -118,6 +119,26 @@ export default function MapPage() {
   }, []);
 
   const [indicators, setIndicators] = useState<IndicatorId[]>(readIndicators);
+
+  // Soil is checked as soon as a point is chosen; the analysis page reuses this result.
+  const [soilCheck, setSoilCheck] = useState<"idle" | "checking" | "ok" | "none" | "unknown">("idle");
+  useEffect(() => {
+    if (!field) {
+      setSoilCheck("idle");
+      return;
+    }
+    let active = true;
+    const { latitude, longitude } = field;
+    setSoilCheck("checking");
+    startSource("soil", latitude, longitude).finally(() => {
+      if (!active) return;
+      const state = getSourceState("soil", latitude, longitude);
+      setSoilCheck(hasNoSoil(latitude, longitude) ? "none" : state.status === "ok" ? "ok" : "unknown");
+    });
+    return () => {
+      active = false;
+    };
+  }, [field]);
   const [constraints, setConstraints] = useState<FarmerConstraints>(readConstraints);
 
   const addCrop = (id: string) => {
@@ -273,7 +294,19 @@ export default function MapPage() {
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : null}
+
+              {field && soilCheck !== "idle" && (
+                <div className={`soil-check ${soilCheck}`} role="status">
+                  {soilCheck === "checking" && "Checking the soil map at this point…"}
+                  {soilCheck === "ok" && "✓ Soil found: this point can be analysed."}
+                  {soilCheck === "none" &&
+                    "No soil mapped here (water, ice or built-up area). Move the point onto a field for a full analysis."}
+                  {soilCheck === "unknown" && "Soil map unavailable right now; the analysis will continue without it."}
+                </div>
+              )}
+
+              {!field && (
                 <div className="empty-selection">
                   <div>
                     <strong>Choose a point or draw a field</strong>

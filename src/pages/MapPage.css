@@ -1202,3 +1202,18 @@ html[data-theme="dark"] .farm-toggle.active { background: #153b28; color: #e9f7e
   color: var(--text-muted);
 }
 #island-panel-farm .farm-toggles { grid-template-columns: 1fr; }
+
+/* Soil check shown right after choosing a point */
+.soil-check {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  background: var(--surface-soft);
+  color: var(--text-soft);
+  border-left: 4px solid var(--border-strong);
+}
+.soil-check.ok { border-left-color: var(--green); color: var(--green-dark); }
+.soil-check.none { border-left-color: #d9734a; color: #a4461f; background: rgba(217, 115, 74, .1); }
+html[data-theme="dark"] .soil-check.none { color: #f2a283; }

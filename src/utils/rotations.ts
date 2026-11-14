@@ -344,6 +344,9 @@ export function recommendRotations(
   priorities: PriorityId[],
 ): RecommendationResult {
   const country = a.country?.code ?? null;
+  if (a.landStatus && !a.landStatus.farmable) {
+    return { rotations: [], cropFits: [], market: { countryName: a.country?.name ?? null, regionName: null } };
+  }
   const all = CROPS.map((crop) => evaluateCrop(crop, climate));
   const cropFits = all.filter((f) => f.crop.role !== "cover").sort((x, y) => y.score - x.score);
   const market = marketCrops(country, a.latitude, a.longitude);

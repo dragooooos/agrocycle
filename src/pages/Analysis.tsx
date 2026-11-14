@@ -292,6 +292,11 @@ export default function Analysis() {
             usdaYields: value<NassResult>("nass"),
             openet: value<OpenEtResult>("openet"),
           },
+          // SoilGrids answered "no soil here" and there is no USDA soil map either.
+          noSoil:
+            snapshot.soil.status === "error" &&
+            snapshot.soil.kind === "NoSoilError" &&
+            snapshot.ssurgo.status !== "ok",
           sources: sourceStatuses(snapshot),
         }),
         error: null,
@@ -351,14 +356,53 @@ export default function Analysis() {
     );
   }
 
-  if (!snapshot || snapshot.power.status === "loading" || snapshot.power.status === "idle") {
+  // Step 1: is there soil here at all?
+  if (!snapshot || snapshot.soil.status === "loading" || snapshot.soil.status === "idle") {
+    return shell(
+      <section className="analysis-state">
+        <RefreshCw size={28} className="spin" />
+        <h1>Checking for farmland at this point</h1>
+        <p>
+          {field.latitude.toFixed(4)}, {field.longitude.toFixed(4)} · looking up the soil map first. Climate and
+          satellite data are only fetched where there is soil to farm.
+        </p>
+      </section>,
+    );
+  }
+
+  if (snapshot.soil.status === "error" && snapshot.soil.kind === "NoSoilError") {
+    return shell(
+      <section className="analysis-state not-farmable">
+        <div className="na-score" aria-label="Resilience not applicable">
+          <strong>N/A</strong>
+          <span>resilience</span>
+        </div>
+        <h1>No farmland at this point</h1>
+        <p>
+          No soil is mapped here (ISRIC SoilGrids, the soil source NASA's SMAP mission uses). The point is open water
+          (ocean, sea, lake or river), permanent ice or a built-up area, so there is nothing to plant and no other data
+          was fetched.
+        </p>
+        <p className="state-hint">
+          {field.latitude.toFixed(4)}, {field.longitude.toFixed(4)}
+        </p>
+        <button className="primary-button" onClick={() => navigate("/map")}>
+          <MapPin size={17} /> Choose another spot
+        </button>
+      </section>,
+    );
+  }
+
+  // Step 2: soil found (or the soil service is down) → wait for the climate data.
+  if (snapshot.power.status === "loading" || snapshot.power.status === "idle") {
     return shell(
       <section className="analysis-state">
         <RefreshCw size={28} className="spin" />
         <h1>Fetching NASA data for your field</h1>
         <p>
-          {field.latitude.toFixed(4)}, {field.longitude.toFixed(4)} · daily records since April 2015. Your chosen
-          data loads first; the rest follows in the background.
+          {field.latitude.toFixed(4)}, {field.longitude.toFixed(4)} ·{" "}
+          {snapshot.soil.status === "ok" ? "soil found ✓" : "soil map unavailable, continuing"} · daily records since April 2015.
+          Your chosen data loads first; the rest follows in the background.
         </p>
         <div className="state-sources">
           {(["power", "soil", "terrain", "ndvi"] as SourceId[]).map((id) => (
@@ -392,7 +436,30 @@ export default function Analysis() {
   /* ----------------------------------- loaded ----------------------------------- */
 
   const a = analysis;
-  const tone = getScoreTone(a.resilienceScore);
+
+  if (!a.landStatus.farmable || a.resilienceScore === null) {
+    return shell(
+      <section className="analysis-state not-farmable">
+        <div className="na-score" aria-label="Resilience not applicable">
+          <strong>N/A</strong>
+          <span>resilience</span>
+        </div>
+        <h1>{a.landStatus.title}</h1>
+        <p>{a.landStatus.reason}</p>
+        <p className="state-hint">
+          {field.latitude.toFixed(4)}, {field.longitude.toFixed(4)}
+          {a.climate.meanTemperature !== null ? ` · mean temperature ${a.climate.meanTemperature} °C` : ""}
+          {a.water.rainfall !== null ? ` · ${a.water.rainfall} mm precipitation in 12 months` : ""}
+        </p>
+        <button className="primary-button" onClick={() => navigate("/map")}>
+          <MapPin size={17} /> Choose another spot
+        </button>
+      </section>,
+    );
+  }
+
+  const resilience = a.resilienceScore;
+  const tone = getScoreTone(resilience);
   const ready = (layer: LayerId) => layerReadiness(layer, snapshot);
   const sourceLoading = (id: SourceId) => ["loading", "idle"].includes(snapshot[id]?.status ?? "idle");
   const findings: Finding[] = buildFindings(a, layers, sourceLoading).map((f, i) => ({ ...f, id: `${f.layer}-${i}` }));
@@ -411,9 +478,9 @@ export default function Analysis() {
   const cropFits = recommendation?.cropFits ?? [];
   const scenarioActive = scenario.deltaT !== 0 || scenario.rainPct !== 0;
   const verdict =
-    a.resilienceScore >= 75
+    resilience >= 75
       ? "Your field is in good shape overall."
-      : a.resilienceScore >= 50
+      : resilience >= 50
         ? "Your field shows some pressure worth watching."
         : "Your field is under significant pressure.";
 
@@ -559,6 +626,12 @@ export default function Analysis() {
               <input type="range" min={-40} max={30} step={5} value={scenario.rainPct} onChange={(e) => setScenario({ ...scenario, rainPct: Number(e.target.value) })} />
             </label>
           </div>
+          {rotations.length === 0 && (
+            <p className="faq-lead">
+              No crop in the library has a long or warm enough season here, so no rotation is suggested. Local
+              specialists (greenhouses, hardy forage or grazing) are the better route for this climate.
+            </p>
+          )}
           <div className="rotation-list">
             {rotations.map((rotation, index) => (
               <RotationCard key={rotation.id} rotation={rotation} rank={index + 1} collapsible={rotation.id !== "current"} />
@@ -813,7 +886,7 @@ export default function Analysis() {
         <section className="essentials-card">
           <div className="essentials-score">
             <div className={`resilience-score ${tone}`}>
-              <strong>{a.resilienceScore}</strong>
+              <strong>{resilience}</strong>
               <span>/100</span>
             </div>
             <div>
