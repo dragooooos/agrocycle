@@ -45,6 +45,8 @@ export default function ThemeToggle({
   };
 
   const label = dark ? "Light mode" : "Dark mode";
+  // Short visible label keeps it as wide as the other nav buttons; the tooltip keeps the full text.
+  const shortLabel = dark ? "Light" : "Dark";
 
   return (
     <button
@@ -58,7 +60,7 @@ export default function ThemeToggle({
           <span className="side-nav-icon">
             {dark ? <Sun size={17} /> : <Moon size={17} />}
           </span>
-          <span className="side-nav-label">{label}</span>
+          <span className="side-nav-label">{shortLabel}</span>
         </>
       ) : dark ? (
         <Sun size={17} />
