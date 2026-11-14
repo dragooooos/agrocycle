@@ -155,12 +155,4 @@ html[data-theme="dark"] .satellite-fallback small {
   .landing-stage-earth { width: max(200vh, 220vw); filter: blur(3px); }
 }
 
-@media (max-width: 760px) {
-  /* Home hero fills the space under the navbar */
 
-  .app-content .landing-stage {
-    height: calc(100svh - 60px);
-    min-height: 520px;
-  }
-
-}
