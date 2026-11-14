@@ -16,6 +16,18 @@
     <title>
       AgroCycle — Climate-smart crop decisions
     </title>
+
+    <!-- Home page only: start downloading the 3D globe model (EarthScene.tsx) before the app has loaded. -->
+    <script>
+      if (location.pathname === "/") {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.href = "/earth.glb";
+        link.as = "fetch";
+        link.crossOrigin = "anonymous";
+        document.head.appendChild(link);
+      }
+    </script>
 </head>
 
   <body>
