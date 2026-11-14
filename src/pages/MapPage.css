@@ -3,18 +3,11 @@
 /* MAP */
 
 .map-wrapper {
-  position: relative;
-
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: clamp(540px, 70vh, 740px);
-
+  height: 100%;
   overflow: hidden;
-
-  border: 1px solid var(--border);
-  border-radius: 24px;
-
-  box-shadow: var(--shadow);
-
   background: #dfeee3;
 }
 
@@ -175,25 +168,15 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-
   border-radius: 11px;
-
   font-size: 13px;
   font-weight: 800;
-
-  transition:
-    transform 0.18s ease,
+  transition: transform 0.18s ease,
     box-shadow 0.18s ease,
     background 0.18s ease;
-}
-
-.secondary-button {
   padding: 9px 12px;
-
   color: var(--green-dark);
-
   background: var(--green-light);
-
   border: 1px solid rgba(33, 138, 88, 0.13);
 }
 
@@ -203,36 +186,24 @@
 
 /* DARK MODE */
 
-html[data-theme="dark"] .coordinates-box {
-  background: rgba(16, 35, 25, 0.96);
-}
-
-html[data-theme="dark"] .coordinate-inputs input {
-  color: var(--text);
-  background: #102319;
-}
-
 html[data-theme="dark"] .map-overlay {
   background: rgba(5, 20, 13, 0.9);
 }
 
 /* LEAFLET */
 
-.leaflet-control-zoom a {
-  color: #173b2c !important;
+/* Extra .leaflet-container keeps this above leaflet.css's `.leaflet-bar a`, which loads after us. */
+.leaflet-container .leaflet-control-zoom a {
+  color: #173b2c;
 }
 
 .leaflet-pm-toolbar .leaflet-buttons-control-button {
-  background: white !important;
+  background: white;
 }
 
 /* RESPONSIVE */
 
 @media (max-width: 700px) {
-  .map-wrapper {
-    height: 590px;
-  }
-
   .map-top-card {
     top: 10px;
     right: 10px;
@@ -262,15 +233,6 @@ html[data-theme="dark"] .map-overlay {
   min-height: 620px;
   overflow: hidden;
   background: #dbe9df;
-}
-
-.map-page .map-wrapper {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
 }
 
 .map-control-panel {
@@ -579,7 +541,7 @@ html[data-theme="dark"] .map-overlay {
     overflow: visible;
   }
 
-  .map-page .map-wrapper {
+  .map-wrapper {
     position: relative;
     height: 70vh;
     min-height: 560px;
@@ -612,11 +574,11 @@ html[data-theme="dark"] .map-overlay {
 /* THREE.JS FALLBACK */
 
 .leaflet-container.leaflet-pm-drawing {
-  cursor: crosshair !important;
+  cursor: crosshair;
 }
 
 html[data-theme="dark"] .map-disclaimer {
-  color: var(--text-muted) !important;
+  color: var(--text-muted);
 }
 
 html[data-theme="dark"] .location-button,
@@ -633,32 +595,6 @@ html[data-theme="dark"] .selection-card:hover {
   border-color: var(--border-strong);
 }
 
-html[data-theme="dark"] .coordinate-inputs input {
-  color: var(--text) !important;
-  background: #0c1b14 !important;
-  border-color: var(--border-strong) !important;
-}
-
-html[data-theme="dark"] .map-analyze-button {
-  color: #07150d !important;
-  background: #9ce7b8 !important;
-  border-color: #b7f1ca !important;
-  box-shadow: 0 10px 28px rgba(86, 211, 139, 0.20);
-}
-
-html[data-theme="dark"] .map-analyze-button:hover:not(:disabled) {
-  background: #b7f1ca !important;
-}
-
-html[data-theme="dark"] .location-button {
-  color: #baf2ce;
-  background: #153b28;
-}
-
-html[data-theme="dark"] .location-button:hover {
-  background: #1c4a31;
-}
-
 /* Leaflet controls are outside our React theme variables, so style them explicitly. */
 
 html[data-theme="dark"] .leaflet-control-zoom,
@@ -668,31 +604,15 @@ html[data-theme="dark"] .leaflet-pm-actions-container {
   filter: brightness(0.88) saturate(0.85);
 }
 
-html[data-theme="dark"] .leaflet-control-zoom a,
-html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button {
-  color: #e8f6ed !important;
-  background: #10251b !important;
-  border-color: #31503f !important;
-}
-
 html[data-theme="dark"] .leaflet-control-zoom a:hover,
 html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button:hover {
-  background: #183829 !important;
-  color: #baf2ce !important;
-}
-
-html[data-theme="dark"] .leaflet-control-attribution {
-  color: #b7c8bd !important;
-  background: rgba(5, 15, 10, 0.82) !important;
-}
-
-html[data-theme="dark"] .leaflet-control-attribution a {
-  color: #9ce7b8 !important;
+  background: #183829;
+  color: #baf2ce;
 }
 
 html[data-theme="dark"] .map-live-badge {
-  color: #baf2ce !important;
-  background: #153b28 !important;
+  color: #baf2ce;
+  background: #153b28;
 }
 
 html[data-theme="dark"] .map-attribution-note {
@@ -701,60 +621,58 @@ html[data-theme="dark"] .map-attribution-note {
   border-color: rgba(194, 225, 207, 0.16);
 }
 
-html[data-theme="dark"] .mode-item,
-html[data-theme="dark"] .empty-selection,
-html[data-theme="dark"] .mini-priority {
-  background: #153b28 !important;
-  color: #e9f7ee !important;
-  border-color: rgba(181, 224, 199, 0.18) !important;
+html[data-theme="dark"] .mode-item {
+  background: #153b28;
+  color: #e9f7ee;
+  border-color: rgba(181, 224, 199, 0.18);
 }
 
 html[data-theme="dark"] .mode-item strong,
 html[data-theme="dark"] .empty-selection strong,
 html[data-theme="dark"] .mini-priority svg {
-  color: #e9f7ee !important;
+  color: #e9f7ee;
 }
 
 html[data-theme="dark"] .mode-item p,
 html[data-theme="dark"] .empty-selection p {
-  color: #cfe5d7 !important;
-}
-
-html[data-theme="dark"] .mini-priority.active {
-  background: #1b4a32 !important;
-  color: #e9f7ee !important;
+  color: #cfe5d7;
 }
 
 html[data-theme="dark"] .map-analyze-button {
-  color: #06120b !important;
-  background: #82dca4 !important;
-  border-color: #82dca4 !important;
-  box-shadow: 0 10px 28px rgba(65, 185, 116, 0.18) !important;
+  color: #06120b;
+  background: #82dca4;
+  border-color: #82dca4;
+  box-shadow: 0 10px 28px rgba(65, 185, 116, 0.18);
 }
 
-html[data-theme="dark"] .map-analyze-button:hover {
-  background: #9ae7b7 !important;
-  border-color: #9ae7b7 !important;
+html[data-theme="dark"] .map-analyze-button:hover:not(:disabled) {
+  background: #b7f1ca;
+  border-color: #9ae7b7;
 }
 
 html[data-theme="dark"] .area-control select,
 html[data-theme="dark"] .coordinate-inputs input {
-  color: #edf7f0 !important;
-  background: #0d1d15 !important;
-  border-color: rgba(181, 224, 199, 0.22) !important;
+  color: #edf7f0;
+  background: #0d1d15;
+  border-color: rgba(181, 224, 199, 0.22);
+}
+
+html[data-theme="dark"] .area-control select:focus,
+html[data-theme="dark"] .coordinate-inputs input:focus {
+  border-color: var(--green);
 }
 
 html[data-theme="dark"] .empty-selection,
 html[data-theme="dark"] .mini-priority {
-  color: var(--text) !important;
-  background: rgba(14, 29, 21, 0.96) !important;
-  border-color: rgba(181, 224, 199, 0.18) !important;
+  color: var(--text);
+  background: rgba(14, 29, 21, 0.96);
+  border-color: rgba(181, 224, 199, 0.18);
 }
 
 html[data-theme="dark"] .mini-priority.active {
-  color: #baf3ce !important;
-  background: #173d2a !important;
-  border-color: rgba(114, 212, 154, 0.36) !important;
+  color: #baf3ce;
+  background: var(--green-light);
+  border-color: rgba(114, 212, 154, 0.36);
 }
 
 html[data-theme="dark"] .leaflet-control-zoom,
@@ -762,13 +680,13 @@ html[data-theme="dark"] .leaflet-control-zoom a,
 html[data-theme="dark"] .leaflet-pm-toolbar,
 html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button,
 html[data-theme="dark"] .leaflet-control-attribution {
-  background: #0d1d15 !important;
-  color: #d7e9de !important;
-  border-color: rgba(181, 224, 199, 0.18) !important;
+  background: #0d1d15;
+  color: #d7e9de;
+  border-color: rgba(181, 224, 199, 0.18);
 }
 
 html[data-theme="dark"] .leaflet-control-zoom a {
-  color: #d7e9de !important;
+  color: #d7e9de;
 }
 
 html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button {
@@ -776,22 +694,22 @@ html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button {
 }
 
 html[data-theme="dark"] .leaflet-control-attribution a {
-  color: #8fd8ad !important;
+  color: #8fd8ad;
 }
 
 html[data-theme="dark"] .leaflet-popup-content-wrapper,
 html[data-theme="dark"] .leaflet-popup-tip {
-  color: #edf7f0 !important;
-  background: #102319 !important;
+  color: #edf7f0;
+  background: #102319;
 }
 
 html[data-theme="dark"] .location-button {
-  color: #dff2e6 !important;
-  background: #11271c !important;
-  border-color: rgba(181, 224, 199, 0.22) !important;
+  color: #dff2e6;
+  background: #11271c;
+  border-color: rgba(181, 224, 199, 0.22);
 }
 
 html[data-theme="dark"] .location-button:hover {
-  color: #f2fff6 !important;
-  background: #183728 !important;
+  color: #f2fff6;
+  background: #183728;
 }

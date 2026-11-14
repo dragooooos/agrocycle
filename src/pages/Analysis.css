@@ -63,17 +63,6 @@
   color: var(--green);
 }
 
-.analysis-hero p {
-  max-width: 670px;
-
-  margin-bottom: 24px;
-
-  color: var(--text-soft);
-
-  font-size: 18px;
-  line-height: 1.7;
-}
-
 /* SECTIONS */
 
 .section-heading {
@@ -124,6 +113,10 @@
 }
 
 .analysis-hero p {
+  margin-bottom: 24px;
+  color: var(--text-soft);
+  font-size: 18px;
+  line-height: 1.7;
   max-width: 700px;
 }
 
@@ -1094,23 +1087,6 @@
 
 /* DARK MODE */
 
-html[data-theme="dark"] .evidence-section {
-  background:
-    linear-gradient(
-      135deg,
-      rgba(18, 54, 35, 0.9),
-      rgba(15, 31, 22, 0.92)
-    );
-}
-
-html[data-theme="dark"] .tradeoff-card {
-  background: rgba(57, 44, 18, 0.5);
-}
-
-html[data-theme="dark"] .tradeoff-grid > div {
-  background: rgba(30, 28, 18, 0.55);
-}
-
 /* RESPONSIVE */
 
 @media (max-width: 950px) {
@@ -1196,20 +1172,6 @@ html[data-theme="dark"] .tradeoff-grid > div {
   margin-bottom: 12px;
 }
 
-.see-more-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  padding: 9px 12px;
-  border-radius: 999px;
-  color: var(--green-dark);
-  background: var(--green-light);
-  font-size: 11px;
-  font-weight: 800;
-  transition: transform .2s ease, background .2s ease;
-}
-
 .see-more-button:hover { transform: translateY(-1px); background: #d2efdf; }
 
 .see-more-button span { font-size: 13px; }
@@ -1244,6 +1206,17 @@ html[data-theme="dark"] .tradeoff-grid > div {
 }
 
 .see-more-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  padding: 9px 12px;
+  border-radius: 999px;
+  color: var(--green-dark);
+  background: var(--green-light);
+  font-size: 11px;
+  font-weight: 800;
+  transition: transform .2s ease, background .2s ease;
   cursor: pointer;
 }
 
@@ -1258,7 +1231,7 @@ html[data-theme="dark"] .tradeoff-grid > div {
 }
 
 html[data-theme="dark"] .analysis-hero p {
-  color: var(--text-muted) !important;
+  color: var(--text-muted);
 }
 
 html[data-theme="dark"] .hero-badge,
@@ -1267,16 +1240,6 @@ html[data-theme="dark"] .see-more-button {
   color: #baf2ce;
   background: #153b28;
   border-color: rgba(114, 212, 154, 0.28);
-}
-
-html[data-theme="dark"] .see-more-button:hover {
-  background: #1c4a31;
-}
-
-html[data-theme="dark"] .see-less-button {
-  color: var(--text-soft);
-  background: transparent;
-  border-color: var(--border-strong);
 }
 
 html[data-theme="dark"] .rotation-card,
@@ -1314,20 +1277,20 @@ html[data-theme="dark"] .tradeoff-grid > div {
 }
 
 html[data-theme="dark"] .metric-card {
-  color: var(--text) !important;
-  background: rgba(14, 29, 21, 0.96) !important;
-  border-color: rgba(181, 224, 199, 0.18) !important;
+  color: var(--text);
+  background: rgba(14, 29, 21, 0.96);
+  border-color: rgba(181, 224, 199, 0.18);
 }
 
 html[data-theme="dark"] .see-more-button,
 html[data-theme="dark"] .see-less-button {
-  color: #dff2e6 !important;
-  background: #11271c !important;
-  border-color: rgba(181, 224, 199, 0.22) !important;
+  color: #dff2e6;
+  background: #11271c;
+  border-color: rgba(181, 224, 199, 0.22);
 }
 
 html[data-theme="dark"] .see-more-button:hover,
 html[data-theme="dark"] .see-less-button:hover {
-  color: #f2fff6 !important;
-  background: #183728 !important;
+  color: #f2fff6;
+  background: #183728;
 }
