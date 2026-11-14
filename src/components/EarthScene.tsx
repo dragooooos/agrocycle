@@ -37,7 +37,7 @@ export default function EarthScene() {
           0.1,
           100,
         );
-        camera.position.set(0, 0.25, 6.65);
+        camera.position.set(0, 0.25, 4.65);
 
         const renderer = new THREE.WebGLRenderer({
           antialias: true,

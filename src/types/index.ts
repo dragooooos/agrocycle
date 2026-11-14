@@ -26,44 +26,148 @@ export interface FieldSelection {
   geoJson?: unknown;
 }
 
-export interface ClimateData {
-  meanTemperature: number;
-  temperatureAnomaly: number;
-  maxTemperature: number;
-  heatStressDays: number;
+export type Confidence = "high" | "medium" | "low";
+
+export type LayerId = "moisture" | "temperature" | "rain" | "vegetation" | "terrain" | "soil";
+
+export type SourceId = "power" | "ndvi" | "terrain" | "soil" | "ssurgo" | "country";
+
+export interface SourceStatus {
+  id: string;
+  name: string;
+  provider: string;
+  ok: boolean;
+  /** Still loading (not a failure). */
+  pending?: boolean;
+  detail: string;
+  url?: string;
+}
+
+export interface MonthlyProfile {
+  month: string;
+  rootWetness: number | null;
+  rainMm: number | null;
   frostDays: number;
+  heatDays: number;
+  tMean: number | null;
+  tMax: number | null;
+  tMin: number | null;
+  et0: number | null;
+}
+
+export interface TrendPoint {
+  year: number;
+  value: number;
+}
+
+export interface Trend {
+  id: string;
+  label: string;
+  unit: string;
+  values: TrendPoint[];
+  slopePerDecade: number;
+  r2: number;
+  significant: boolean;
+  projectionYear: number;
+  projection: number;
+  low: number;
+  high: number;
+}
+
+export interface SeasonOdds {
+  dryGrowingSeasons: { count: number; of: number };
+  hotYears: { count: number; of: number };
+  lateFrostYears: { count: number; of: number };
+}
+
+export interface FarmerConstraints {
+  irrigation: boolean;
+  livestock: boolean;
+  currentCrops: string[];
+}
+
+export interface RotationSegment {
+  cropId: string;
+  name: string;
+  emoji: string;
+  role: "main" | "second" | "cover";
+  months: number[];
+}
+
+export interface RotationYear {
+  label: string;
+  segments: RotationSegment[];
+  bareMonths: number[];
+}
+
+export interface ClimateData {
+  meanTemperature: number | null;
+  temperatureAnomaly: number | null;
+  maxTemperature: number | null;
+  heatStressDays: number | null;
+  heatStressBaseline: number | null;
+  frostDays: number | null;
+  frostBaseline: number | null;
 }
 
 export interface WaterData {
-  rainfall: number;
-  rainfallAnomaly: number;
-  soilMoisture: number;
-  soilMoistureAnomaly: number;
-  evapotranspiration: number;
+  rainfall: number | null;
+  rainfallAnomaly: number | null;
+  heavyRainDays: number | null;
+  surfaceWetness: number | null;
+  rootZoneWetness: number | null;
+  rootZoneAnomaly: number | null;
+  rootZoneVolumetric: number | null;
+  evapotranspiration: number | null;
+  waterBalance: number | null;
   waterStress: number;
 }
 
 export interface VegetationData {
-  ndvi: number;
-  ndviAnomaly: number;
-  vegetationStress: RiskLevel;
+  ndvi: number | null;
+  ndviAnomaly: number | null;
+  vegetationStress: RiskLevel | null;
+  date: string | null;
 }
 
 export interface SoilData {
-  organicMatter: number;
-  ph: number;
-  soilType: string;
-  slope: number;
+  organicMatter: number | null;
+  ph: number | null;
+  clay: number | null;
+  sand: number | null;
+  silt: number | null;
+  bulkDensity: number | null;
+  porosity: number | null;
+  soilType: string | null;
+  slope: number | null;
+  elevation: number | null;
   erosionRisk: RiskLevel;
+  drainage: string | null;
+  hydrologicGroup: string | null;
+  awc: number | null;
+  mapUnit: string | null;
+  soilSource: "SSURGO" | "SoilGrids" | null;
 }
 
-export interface FieldData {
-  area: number;
+export interface FieldAnalysis {
+  latitude: number;
+  longitude: number;
+  period: { start: string; end: string; baselineStart: string };
   climate: ClimateData;
   water: WaterData;
   vegetation: VegetationData;
   soil: SoilData;
+  monthly: MonthlyProfile[];
+  /** Daily Tmax / Tmin samples per calendar month, for scenario recounts. */
+  dailyByMonth: { tmax: number[][]; tmin: number[][]; years: number };
+  trends: Trend[];
+  odds: SeasonOdds;
+  country: { code: string; name: string } | null;
   resilienceScore: number;
+  confidence: Confidence;
+  caveats: string[];
+  sources: SourceStatus[];
+  generatedAt: string;
 }
 
 export interface Rotation {
@@ -80,6 +184,12 @@ export interface Rotation {
   explanation: string;
   benefits: string[];
   risks: string[];
-  confidence: "high" | "medium" | "low";
+  evidence?: string[];
+  infoGaps?: string[];
+  strategy?: string;
+  fit?: number;
+  calendar?: RotationYear[];
+  assumed?: boolean;
+  confidence: Confidence;
   recommended: boolean;
 }

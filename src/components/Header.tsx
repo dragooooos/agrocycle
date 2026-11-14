@@ -1,4 +1,4 @@
-import { ArrowLeft, Satellite } from "lucide-react";
+import { ArrowLeft, Leaf, Satellite } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 
@@ -14,19 +14,19 @@ export default function Header({ selected = false }: HeaderProps) {
 
   return (
     <header className="header">
-      {isHome ? (
-        <div className="brand brand-hidden" aria-hidden="true" />
-      ) : (
-        <div className="brand">
+      <div className="brand">
+        {isHome ? (
+          <div className="brand-icon"><Leaf size={22} /></div>
+        ) : (
           <Link to={backTo} className="back-button" aria-label="Go back">
             <ArrowLeft size={17} />
           </Link>
-          <Link to="/" className="brand-copy">
-            <div className="brand-name">AgroCycle</div>
-            <div className="brand-subtitle">Climate-smart crop decisions</div>
-          </Link>
-        </div>
-      )}
+        )}
+        <Link to="/" className="brand-copy">
+          <div className="brand-name">AgroCycle</div>
+          <div className="brand-subtitle">Climate-smart crop decisions</div>
+        </Link>
+      </div>
 
       <div className="header-right">
         {selected && (

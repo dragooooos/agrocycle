@@ -1,16 +1,22 @@
 import {
   ArrowRight,
+  Bug,
   Check,
+  Coins,
   Droplets,
   Flame,
   Mountain,
   Sprout,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MapView from "../components/MapView";
-import type { AreaUnit, FieldSelection, PriorityId } from "../types";
+import type { AreaUnit, FarmerConstraints, FieldSelection, PriorityId } from "../types";
+import { CROP_BY_ID, SELECTABLE_CROPS } from "../data/crops";
+import { ALL_LAYERS, LAYERS, readLayers, saveLayers } from "../data/layers";
+import type { LayerId } from "../types";
 
 const priorityOptions: {
   id: PriorityId;
@@ -21,7 +27,19 @@ const priorityOptions: {
   { id: "soil", label: "Build soil health", icon: Sprout },
   { id: "heat", label: "Handle heat", icon: Flame },
   { id: "erosion", label: "Protect soil", icon: Mountain },
+  { id: "pest", label: "Break pest cycles", icon: Bug },
+  { id: "income", label: "Protect income", icon: Coins },
 ];
+
+const readConstraints = (): FarmerConstraints => {
+  try {
+    const raw = sessionStorage.getItem("farmrotate:constraints");
+    if (raw) return { irrigation: false, livestock: false, currentCrops: [], ...JSON.parse(raw) };
+  } catch {
+    // ignore
+  }
+  return { irrigation: false, livestock: false, currentCrops: [] };
+};
 
 const unitLabels: Record<AreaUnit, string> = {
   m2: "m²",
@@ -48,6 +66,26 @@ export default function MapPage() {
     "soil",
   ]);
 
+  const [constraints, setConstraints] = useState<FarmerConstraints>(readConstraints);
+  const [layers, setLayers] = useState<LayerId[]>(readLayers);
+  const allSelected = layers.length === ALL_LAYERS.length;
+
+  const toggleLayer = (id: LayerId) =>
+    setLayers((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
+
+  const addCrop = (id: string) => {
+    if (!id) return;
+    setConstraints((current) =>
+      current.currentCrops.length >= 4 ? current : { ...current, currentCrops: [...current.currentCrops, id] },
+    );
+  };
+
+  const removeCrop = (index: number) =>
+    setConstraints((current) => ({
+      ...current,
+      currentCrops: current.currentCrops.filter((_, i) => i !== index),
+    }));
+
   const togglePriority = (id: PriorityId) => {
     setPriorities((current) =>
       current.includes(id)
@@ -71,6 +109,8 @@ export default function MapPage() {
       JSON.stringify({ ...field, areaUnit: unit }),
     );
     sessionStorage.setItem("farmrotate:priorities", JSON.stringify(priorities));
+    sessionStorage.setItem("farmrotate:constraints", JSON.stringify(constraints));
+    saveLayers(layers);
     sessionStorage.setItem("farmrotate:note", "");
     navigate("/analysis");
   };
@@ -157,6 +197,48 @@ export default function MapPage() {
             </div>
           )}
 
+          <div className="layer-picker">
+            <div className="priority-mini-heading">
+              <div>
+                <span className="eyebrow">DATA TO ANALYSE</span>
+                <h2>What do you want to see?</h2>
+              </div>
+              <button
+                type="button"
+                className="layer-all"
+                onClick={() => setLayers(allSelected ? [] : [...ALL_LAYERS])}
+                aria-pressed={allSelected}
+              >
+                {allSelected ? "Clear all" : "Select all"}
+              </button>
+            </div>
+            <div className="layer-grid">
+              {LAYERS.map((layer) => {
+                const active = layers.includes(layer.id);
+                return (
+                  <button
+                    key={layer.id}
+                    type="button"
+                    className={active ? "layer-option active" : "layer-option"}
+                    onClick={() => toggleLayer(layer.id)}
+                    aria-pressed={active}
+                  >
+                    <span className="layer-emoji">{layer.emoji}</span>
+                    <span className="layer-text">
+                      <strong>{layer.label}</strong>
+                      <small>{layer.description}</small>
+                    </span>
+                    <span className="layer-check">{active && <Check size={13} />}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <small className="farm-hint">
+              Your choices load first. Everything else keeps loading in the background, so you can add it
+              later on the analysis page without waiting.
+            </small>
+          </div>
+
           <div className="priority-mini">
             <div className="priority-mini-heading">
               <div>
@@ -184,9 +266,71 @@ export default function MapPage() {
             </div>
           </div>
 
+          <div className="farm-inputs">
+            <div className="priority-mini-heading">
+              <div>
+                <span className="eyebrow">YOUR FARM</span>
+                <h2>Current rotation & constraints</h2>
+              </div>
+              <span>optional</span>
+            </div>
+
+            <label className="farm-label" htmlFor="current-crop">
+              Crops in your current rotation, in order
+            </label>
+            <div className="crop-chips">
+              {constraints.currentCrops.map((id, index) => (
+                <span key={`${id}-${index}`} className="crop-chip">
+                  {CROP_BY_ID[id]?.emoji} {CROP_BY_ID[id]?.name ?? id}
+                  <button type="button" aria-label="Remove crop" onClick={() => removeCrop(index)}>
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              {constraints.currentCrops.length < 4 && (
+                <select
+                  id="current-crop"
+                  value=""
+                  onChange={(event) => addCrop(event.target.value)}
+                >
+                  <option value="">+ Add crop</option>
+                  {SELECTABLE_CROPS.map((crop) => (
+                    <option key={crop.id} value={crop.id}>
+                      {crop.emoji} {crop.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {constraints.currentCrops.length === 0 && (
+              <small className="farm-hint">
+                Leave empty and AgroCycle assumes the most common local rotation as the baseline.
+              </small>
+            )}
+
+            <div className="farm-toggles">
+              <label className={constraints.irrigation ? "farm-toggle active" : "farm-toggle"}>
+                <input
+                  type="checkbox"
+                  checked={constraints.irrigation}
+                  onChange={(event) => setConstraints({ ...constraints, irrigation: event.target.checked })}
+                />
+                <Droplets size={15} /> Irrigation available
+              </label>
+              <label className={constraints.livestock ? "farm-toggle active" : "farm-toggle"}>
+                <input
+                  type="checkbox"
+                  checked={constraints.livestock}
+                  onChange={(event) => setConstraints({ ...constraints, livestock: event.target.checked })}
+                />
+                <Sprout size={15} /> Livestock / forage needed
+              </label>
+            </div>
+          </div>
+
           <button
             className="primary-button map-analyze-button"
-            disabled={!field}
+            disabled={!field || layers.length === 0}
             onClick={analyze}
           >
             Continue to analysis
