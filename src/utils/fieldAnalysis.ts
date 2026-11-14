@@ -2,6 +2,7 @@ import type {
   AnalysisExtras,
   Confidence,
   FieldAnalysis,
+  LandStatus,
   MonthlyProfile,
   RiskLevel,
   SeasonOdds,
@@ -146,7 +147,47 @@ export interface AnalysisInputs {
   terrain: TerrainResult | null;
   country: FieldAnalysis["country"];
   extras?: Partial<AnalysisExtras>;
+  /** SoilGrids answered but has no soil mapped at this point (and no USDA soil map either). */
+  noSoil?: boolean;
   sources: SourceStatus[];
+}
+
+/**
+ * Is there farmland here at all? Uses signals verified against oceans, seas,
+ * ice sheets, lakes and cities:
+ * - NASA POWER has no soil wetness at all over open water and permanent ice;
+ * - SoilGrids maps no soil on water bodies, glaciers and built-up land;
+ * - field crops need at least 3 months with a mean temperature of 5 °C or more.
+ */
+export function landStatus(rootWetness: (number | null)[], monthlyMeanT: (number | null)[], noSoil: boolean): LandStatus {
+  if (!rootWetness.some((value) => value !== null)) {
+    return {
+      farmable: false,
+      kind: "water-or-ice",
+      title: "No land surface here",
+      reason:
+        "NASA's land model has no soil at this point: it is open water (ocean, sea, large lake) or a permanent ice sheet. There is nothing to plant, so no resilience score or rotation is given.",
+    };
+  }
+  if (noSoil) {
+    return {
+      farmable: false,
+      kind: "no-soil",
+      title: "No farmland at this point",
+      reason:
+        "No soil is mapped here (SoilGrids). The point is most likely a lake, river, glacier or built-up area. Move the marker onto a field to get an analysis.",
+    };
+  }
+  const growingMonths = monthlyMeanT.filter((t) => t !== null && t >= 5).length;
+  if (growingMonths < 3) {
+    return {
+      farmable: false,
+      kind: "too-cold",
+      title: "Too cold for field crops",
+      reason: `Only ${growingMonths} month${growingMonths === 1 ? "" : "s"} a year average 5 °C or more. No field crop can complete a season here (ice, tundra or high mountains).`,
+    };
+  }
+  return { farmable: true, kind: "land", title: null, reason: null };
 }
 
 export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
@@ -288,6 +329,8 @@ export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
   const trends = buildTrends(dates, { t2m, tmax, tmin, rain, root });
   const odds = buildOdds(dates, monthly, { tmin, tmax, root }, latitude);
 
+  const land = landStatus(root, monthly.map((m) => m.tMean), input.noSoil ?? false);
+
   // Resilience score.
   const heatPressure = clamp((heat.current ?? 0) / 40) * 100;
   const erosionPressure = { low: 15, moderate: 50, high: 85 }[erosionRisk];
@@ -418,7 +461,8 @@ export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
       usdaYields: input.extras?.usdaYields ?? null,
       openet: input.extras?.openet ?? null,
     },
-    resilienceScore: Math.max(0, Math.min(100, resilienceScore)),
+    resilienceScore: land.farmable ? Math.max(0, Math.min(100, resilienceScore)) : null,
+    landStatus: land,
     confidence,
     caveats,
     sources: input.sources,

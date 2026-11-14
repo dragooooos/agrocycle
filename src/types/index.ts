@@ -178,6 +178,13 @@ export interface SoilData {
   soilSource: "SSURGO" | "SoilGrids" | null;
 }
 
+export interface LandStatus {
+  farmable: boolean;
+  kind: "land" | "water-or-ice" | "no-soil" | "too-cold";
+  title: string | null;
+  reason: string | null;
+}
+
 export interface AnalysisExtras {
   era5: import("../services/extraSources").Era5Result | null;
   projection: import("../services/extraSources").ProjectionResult | null;
@@ -203,7 +210,9 @@ export interface FieldAnalysis {
   country: { code: string; name: string; state?: string; stateCode?: string; county?: string } | null;
   /** Results from the additional sources (null while loading or unavailable). */
   extras: AnalysisExtras;
-  resilienceScore: number;
+  /** null when the point is not farmable (see landStatus). */
+  resilienceScore: number | null;
+  landStatus: LandStatus;
   confidence: Confidence;
   caveats: string[];
   sources: SourceStatus[];

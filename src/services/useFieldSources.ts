@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SourceId } from "../types";
-import { getSourceState, resetSource, startSource, type SourceState } from "./sourceStore";
+import { getSourceState, hasNoSoil, resetSource, startSource, type SourceState } from "./sourceStore";
 
 const ALL: SourceId[] = [
   "power",
@@ -21,8 +21,14 @@ const snapshotOf = (lat: number, lon: number) =>
   Object.fromEntries(ALL.map((id) => [id, getSourceState(id, lat, lon)])) as Record<SourceId, SourceState>;
 
 /**
- * Loads the sources behind the farmer's chosen layers first, then fetches
- * every other source in the background so extra layers appear instantly.
+ * Loading order:
+ * 1. Soil first (~1 s). If no soil is mapped at the point (ocean, sea, lake,
+ *    ice, built-up area) nothing else is fetched: there is nothing to farm.
+ * 2. Otherwise the sources behind the farmer's chosen layers.
+ * 3. Once the climate data is in, every other source in the background, so
+ *    extra layers appear instantly when switched on.
+ * If the soil service itself fails (network, outage), loading continues and
+ * the land check falls back to NASA POWER.
  */
 export function useFieldSources(lat: number | undefined, lon: number | undefined, priority: SourceId[]) {
   const [snapshot, setSnapshot] = useState<Record<SourceId, SourceState> | null>(null);
@@ -35,15 +41,20 @@ export function useFieldSources(lat: number | undefined, lon: number | undefined
       if (active) setSnapshot(snapshotOf(lat, lon));
     };
 
-    const first = ALL.filter((id) => priority.includes(id));
-    const rest = ALL.filter((id) => !priority.includes(id));
-    first.forEach((id) => startSource(id, lat, lon).finally(refresh));
-    // Background sources start once the climate data (needed for the analysis) is in.
-    startSource("power", lat, lon).finally(() => {
-      rest.forEach((id) => startSource(id, lat, lon).finally(refresh));
-      refresh();
-    });
     refresh();
+    startSource("soil", lat, lon).finally(() => {
+      refresh();
+      if (!active || hasNoSoil(lat, lon)) return;
+
+      const first = ALL.filter((id) => id !== "soil" && priority.includes(id));
+      const rest = ALL.filter((id) => id !== "soil" && !priority.includes(id));
+      first.forEach((id) => startSource(id, lat, lon).finally(refresh));
+      startSource("power", lat, lon).finally(() => {
+        if (!active) return;
+        rest.forEach((id) => startSource(id, lat, lon).finally(refresh));
+        refresh();
+      });
+    });
 
     return () => {
       active = false;
