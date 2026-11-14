@@ -716,10 +716,38 @@ body:has(.analysis-page)::before {
   margin-bottom: 12px;
 }
 
+/* Columns follow the number of measurements so the grid stays symmetric
+   (4 → 2×2, 6 → 3×2, 8 → 4×2 …). A shorter last row is centred. */
 .metric-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 24px 16px;
+  --cols: 3;
+  --gap: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px var(--gap);
+}
+
+.metric-grid > .metric-card {
+  flex: 0 0 calc((100% - (var(--cols) - 1) * var(--gap)) / var(--cols));
+  min-width: 0;
+}
+
+.metric-grid:has(> :last-child:nth-child(1)) { --cols: 1; }
+
+@media (min-width: 761px) {
+  .metric-grid:has(> :last-child:nth-child(2)),
+  .metric-grid:has(> :last-child:nth-child(4)) { --cols: 2; }
+
+  .metric-grid:has(> :last-child:nth-child(7)),
+  .metric-grid:has(> :last-child:nth-child(8)),
+  .metric-grid:has(> :last-child:nth-child(11)),
+  .metric-grid:has(> :last-child:nth-child(12)) { --cols: 4; }
+
+  .metric-grid:has(> :last-child:nth-child(10)) { --cols: 5; }
+}
+
+@media (max-width: 760px) {
+  .metric-grid:not(:has(> :last-child:nth-child(1))) { --cols: 2; }
 }
 
 .metric-card {
