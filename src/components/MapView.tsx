@@ -8,6 +8,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import area from "@turf/area";
+import type { GeoJsonObject } from "geojson";
 
 import "@geoman-io/leaflet-geoman-free";
 import "leaflet/dist/leaflet.css";
@@ -35,6 +36,100 @@ function MapResizeFix() {
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
+  }, [map]);
+
+  return null;
+}
+
+// Country and region borders (Natural Earth 1:10m lines, public domain),
+// fetched at runtime and drawn as a transparent overlay.
+const NE_BASES = [
+  "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/",
+  "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/",
+];
+const COUNTRY_BORDERS_FILE = "ne_10m_admin_0_boundary_lines_land.geojson";
+const REGION_BORDERS_FILE = "ne_10m_admin_1_states_provinces_lines.geojson";
+/** Region outlines are only fetched and shown from this zoom level up. */
+const REGION_MIN_ZOOM = 5;
+
+const borderRequests = new Map<string, Promise<GeoJsonObject | null>>();
+
+function loadBorders(file: string, bases = NE_BASES) {
+  let request = borderRequests.get(file);
+  if (!request) {
+    request = (async () => {
+      for (const base of bases) {
+        try {
+          const response = await fetch(base + file);
+          if (response.ok) return (await response.json()) as GeoJsonObject;
+        } catch {
+          // try the next source
+        }
+      }
+      borderRequests.delete(file); // allow a retry on the next visit
+      return null;
+    })();
+    borderRequests.set(file, request);
+  }
+  return request;
+}
+
+function CountryBorders() {
+  const map = useMap();
+
+  useEffect(() => {
+    let active = true;
+    let countryLayer: L.Layer | null = null;
+    let regionLayer: L.Layer | null = null;
+    let regionRequested = false;
+
+    // Own pane: above the satellite tiles, below drawn fields and markers.
+    if (!map.getPane("country-borders")) {
+      const pane = map.createPane("country-borders");
+      pane.style.zIndex = "350";
+      pane.style.pointerEvents = "none";
+    }
+    // Canvas keeps thousands of border segments smooth while panning.
+    const renderer = L.canvas({ pane: "country-borders", padding: 0.5 });
+    const base = { pane: "country-borders", interactive: false, renderer } as const;
+
+    loadBorders(COUNTRY_BORDERS_FILE).then((data) => {
+      if (!active || !data) return;
+      // Continuous, semi-transparent white line.
+      countryLayer = L.geoJSON(data, { ...base, style: { color: "#ffffff", weight: 2.75, opacity: 0.5 } }).addTo(map);
+    });
+
+    // Regions: fainter and thinner, loaded the first time the map is zoomed in enough.
+    const updateRegions = () => {
+      const visible = map.getZoom() >= REGION_MIN_ZOOM;
+      if (regionLayer) {
+        if (visible && !map.hasLayer(regionLayer)) regionLayer.addTo(map);
+        if (!visible && map.hasLayer(regionLayer)) regionLayer.remove();
+        return;
+      }
+      if (!visible || regionRequested) return;
+      regionRequested = true;
+      // jsDelivr refuses this file (too large), so go straight to GitHub.
+      loadBorders(REGION_BORDERS_FILE, NE_BASES.slice(1)).then((data) => {
+        if (!active) return;
+        if (!data) {
+          regionRequested = false;
+          return;
+        }
+        regionLayer = L.geoJSON(data, { ...base, style: { color: "#ffffff", weight: 1.2, opacity: 0.4 } });
+        updateRegions();
+      });
+    };
+
+    updateRegions();
+    map.on("zoomend", updateRegions);
+
+    return () => {
+      active = false;
+      map.off("zoomend", updateRegions);
+      countryLayer?.remove();
+      regionLayer?.remove();
+    };
   }, [map]);
 
   return null;
@@ -294,6 +389,7 @@ export default function MapView({
         />
 
         <MapResizeFix />
+        <CountryBorders />
         <MapController target={target} />
         <MapClickHandler onLocation={handleMapClick} disabled={isDrawing} />
         <DrawingTools onFieldSelected={onFieldSelected} onDrawingStateChange={handleDrawingStateChange} />
