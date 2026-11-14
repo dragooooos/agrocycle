@@ -147,10 +147,7 @@ function DrawingTools({
       cutPolygon: false,
     });
 
-    const handleCreate = (event: any) => {
-      const layer = event.layer;
-      if (!(layer instanceof L.Polygon)) return;
-
+    const selectLayer = (layer: L.Polygon) => {
       const geoJson = layer.toGeoJSON();
       const squareMeters = area(geoJson);
       const center = layer.getBounds().getCenter();
@@ -163,6 +160,20 @@ function DrawingTools({
         areaUnit: "m2",
         geoJson,
       });
+    };
+
+    const handleCreate = (event: any) => {
+      const layer = event.layer;
+      if (!(layer instanceof L.Polygon)) return;
+
+      selectLayer(layer);
+
+      // Make the shape resizable right away: drag a corner (or a vertex of a
+      // polygon) to reshape it. Rectangles stay rectangular while resizing.
+      // Re-measure the area whenever the shape changes, including edits made
+      // later through the toolbar's edit tool.
+      layer.on("pm:edit", () => selectLayer(layer));
+      (layer as any).pm?.enable({ allowSelfIntersection: false });
     };
 
     const handleDrawStart = () => {
@@ -214,6 +225,12 @@ export default function MapView({
     longitude: number;
   } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+
+  // Starting a new shape clears the point marker left by an earlier click.
+  const handleDrawingStateChange = useCallback((drawing: boolean) => {
+    setIsDrawing(drawing);
+    if (drawing) setClickedLocation(null);
+  }, []);
 
   const handleGoTo = useCallback((latitude: number, longitude: number) => {
     const location = { latitude, longitude };
@@ -279,7 +296,7 @@ export default function MapView({
         <MapResizeFix />
         <MapController target={target} />
         <MapClickHandler onLocation={handleMapClick} disabled={isDrawing} />
-        <DrawingTools onFieldSelected={onFieldSelected} onDrawingStateChange={setIsDrawing} />
+        <DrawingTools onFieldSelected={onFieldSelected} onDrawingStateChange={handleDrawingStateChange} />
         <LocationMarker location={clickedLocation} />
       </MapContainer>
 
