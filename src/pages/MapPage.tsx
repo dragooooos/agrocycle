@@ -2,7 +2,6 @@ import "./MapPage.css";
 import {
   ArrowRight,
   Bug,
-  Check,
   Coins,
   CloudRain,
   CloudRainWind,
@@ -11,7 +10,6 @@ import {
   Droplets,
   Flame,
   Haze,
-  Info,
   Leaf,
   MapPin,
   Mountain,
@@ -33,7 +31,7 @@ import MapView from "../components/MapView";
 import type { AreaUnit, FarmerConstraints, FieldSelection, IndicatorId, PriorityId } from "../types";
 import { CROP_BY_ID, SELECTABLE_CROPS } from "../data/crops";
 import { readIndicators } from "../data/layers";
-import { getSourceState, hasNoSoil, startSource } from "../services/sourceStore";
+import { startSource } from "../services/sourceStore";
 
 const readConstraints = (): FarmerConstraints => {
   try {
@@ -92,12 +90,12 @@ function convertArea(squareMeters: number, unit: AreaUnit) {
   return squareMeters;
 }
 
-type PanelId = "location" | "info" | "priorities" | "indicators" | "farm";
+type PanelId = "location" | "priorities" | "indicators" | "farm";
 
 export default function MapPage() {
   const navigate = useNavigate();
   const [field, setField] = useState<FieldSelection | null>(null);
-  const [unit, setUnit] = useState<AreaUnit>("ha");
+  const [unit] = useState<AreaUnit>("ha");
   const [priorities, setPriorities] = useState<PriorityId[]>([
     "water",
     "soil",
@@ -120,24 +118,10 @@ export default function MapPage() {
 
   const [indicators, setIndicators] = useState<IndicatorId[]>(readIndicators);
 
-  // Soil is checked as soon as a point is chosen; the analysis page reuses this result.
-  const [soilCheck, setSoilCheck] = useState<"idle" | "checking" | "ok" | "none" | "unknown">("idle");
+  // Start the soil lookup as soon as a point is chosen; the analysis page reuses this result.
   useEffect(() => {
-    if (!field) {
-      setSoilCheck("idle");
-      return;
-    }
-    let active = true;
-    const { latitude, longitude } = field;
-    setSoilCheck("checking");
-    startSource("soil", latitude, longitude).finally(() => {
-      if (!active) return;
-      const state = getSourceState("soil", latitude, longitude);
-      setSoilCheck(hasNoSoil(latitude, longitude) ? "none" : state.status === "ok" ? "ok" : "unknown");
-    });
-    return () => {
-      active = false;
-    };
+    if (!field) return;
+    startSource("soil", field.latitude, field.longitude);
   }, [field]);
   const [constraints, setConstraints] = useState<FarmerConstraints>(readConstraints);
 
@@ -220,103 +204,6 @@ export default function MapPage() {
             </section>
           )}
 
-          {openPanel === "info" && (
-            <section
-              id="island-panel-info"
-              className="island-panel"
-              role="dialog"
-              aria-label="Location and indications"
-            >
-              <div className="island-panel-header">
-                <div>
-                  <span className="eyebrow">FIELD EXPLORER</span>
-                </div>
-                <button
-                  className="island-close"
-                  onClick={() => setOpenPanel(null)}
-                  aria-label="Close panel"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="selection-mode-info">
-                <div className="mode-item">
-                  <div>
-                    <strong>Point analysis</strong>
-                    <p>Click one location to inspect local conditions. No field boundary required.</p>
-                  </div>
-                </div>
-                <div className="mode-item">
-                  <div>
-                    <strong>Field area</strong>
-                    <p>Draw a polygon or rectangle to calculate the selected area.</p>
-                  </div>
-                </div>
-              </div>
-
-              {field ? (
-                <div className="selection-card">
-                  <div className="selection-card-top">
-                    <span className="selection-type">
-                      {field.selectionType === "point" ? "POINT SELECTED" : "FIELD SELECTED"}
-                    </span>
-                    <Check size={16} />
-                  </div>
-
-                  <div className="coordinate-readout">
-                    <div>
-                      <span>Latitude</span>
-                      <strong>{field.latitude.toFixed(6)}°</strong>
-                    </div>
-                    <div>
-                      <span>Longitude</span>
-                      <strong>{field.longitude.toFixed(6)}°</strong>
-                    </div>
-                  </div>
-
-                  {field.selectionType === "area" && (
-                    <div className="area-control">
-                      <div>
-                        <span>Measured area</span>
-                        <strong>{displayArea}</strong>
-                      </div>
-                      <label>
-                        Unit
-                        <select value={unit} onChange={(event) => setUnit(event.target.value as AreaUnit)}>
-                          <option value="ha">Hectares (ha)</option>
-                          <option value="m2">Square metres (m²)</option>
-                          <option value="km2">Square kilometres (km²)</option>
-                          <option value="acres">Acres</option>
-                          <option value="ft2">Square feet (ft²)</option>
-                        </select>
-                      </label>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {field && soilCheck !== "idle" && (
-                <div className={`soil-check ${soilCheck}`} role="status">
-                  {soilCheck === "checking" && "Checking the soil map at this point…"}
-                  {soilCheck === "ok" && "✓ Soil found: this point can be analysed."}
-                  {soilCheck === "none" &&
-                    "No soil mapped here (water, ice or built-up area). Move the point onto a field for a full analysis."}
-                  {soilCheck === "unknown" && "Soil map unavailable right now; the analysis will continue without it."}
-                </div>
-              )}
-
-              {!field && (
-                <div className="empty-selection">
-                  <div>
-                    <strong>Choose a point or draw a field</strong>
-                    <p>Use the map tools on the left, or search coordinates with the 🔍 button.</p>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
           {openPanel === "priorities" && (
             <section
               id="island-panel-priorities"
@@ -376,11 +263,6 @@ export default function MapPage() {
                 </button>
               </div>
 
-              <p className="island-hint">
-                Your choices load first; everything else keeps loading in the background, so you can add it
-                later on the analysis page without waiting.
-              </p>
-
               <div className="indicator-actions">
                 <button onClick={() => setIndicators(indicatorOptions.map((option) => option.id))}>
                   Select all
@@ -427,52 +309,70 @@ export default function MapPage() {
                 </button>
               </div>
 
-              <label className="farm-label" htmlFor="current-crop">
-                Crops in your current rotation, in order
-              </label>
-              <div className="crop-chips">
-                {constraints.currentCrops.map((id, index) => (
-                  <span key={`${id}-${index}`} className="crop-chip">
-                    {CROP_BY_ID[id]?.emoji} {CROP_BY_ID[id]?.name ?? id}
-                    <button type="button" aria-label="Remove crop" onClick={() => removeCrop(index)}>
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-                {constraints.currentCrops.length < 4 && (
-                  <select id="current-crop" value="" onChange={(event) => addCrop(event.target.value)}>
-                    <option value="">+ Add crop</option>
-                    {SELECTABLE_CROPS.map((crop) => (
-                      <option key={crop.id} value={crop.id}>
-                        {crop.emoji} {crop.name}
-                      </option>
+              {constraints.currentCrops.length > 0 && (
+                <>
+                  <div className="farm-section-heading">
+                    <span>Your rotation</span>
+                    <div className="indicator-actions">
+                      <button onClick={() => setConstraints({ ...constraints, currentCrops: [] })}>Clear</button>
+                    </div>
+                  </div>
+                  <div className="crop-chips">
+                    {constraints.currentCrops.map((id, index) => (
+                      <span key={`${id}-${index}`} className="crop-chip">
+                        <span className="crop-chip-step">{index + 1}</span>
+                        {CROP_BY_ID[id]?.emoji} {CROP_BY_ID[id]?.name ?? id}
+                        <button type="button" aria-label="Remove crop" onClick={() => removeCrop(index)}>
+                          <X size={12} />
+                        </button>
+                      </span>
                     ))}
-                  </select>
-                )}
-              </div>
-              {constraints.currentCrops.length === 0 && (
-                <small className="farm-hint">
-                  Leave empty and AgroCycle assumes the most common local rotation as the baseline.
-                </small>
+                  </div>
+                </>
               )}
 
-              <div className="farm-toggles">
-                <label className={constraints.irrigation ? "farm-toggle active" : "farm-toggle"}>
-                  <input
-                    type="checkbox"
-                    checked={constraints.irrigation}
-                    onChange={(event) => setConstraints({ ...constraints, irrigation: event.target.checked })}
-                  />
-                  <Droplets size={15} /> Irrigation available
-                </label>
-                <label className={constraints.livestock ? "farm-toggle active" : "farm-toggle"}>
-                  <input
-                    type="checkbox"
-                    checked={constraints.livestock}
-                    onChange={(event) => setConstraints({ ...constraints, livestock: event.target.checked })}
-                  />
-                  <Sprout size={15} /> Livestock / forage needed
-                </label>
+              <div className="farm-section-heading">
+                <span>Add crops</span>
+              </div>
+              <div className="priority-mini-grid farm-crop-grid">
+                {SELECTABLE_CROPS.map((crop) => {
+                  const inRotation = constraints.currentCrops.includes(crop.id);
+                  const full = constraints.currentCrops.length >= 4;
+                  return (
+                    <button
+                      key={crop.id}
+                      className={inRotation ? "mini-priority active" : "mini-priority"}
+                      onClick={() => addCrop(crop.id)}
+                      disabled={full}
+                      title={full ? "Rotation is full: remove a crop first" : `Add ${crop.name}`}
+                    >
+                      <span className="farm-crop-emoji" aria-hidden="true">{crop.emoji}</span>
+                      {crop.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="farm-section-heading">
+                <span>Farm conditions</span>
+              </div>
+              <div className="priority-mini-grid">
+                <button
+                  className={constraints.irrigation ? "mini-priority active" : "mini-priority"}
+                  onClick={() => setConstraints({ ...constraints, irrigation: !constraints.irrigation })}
+                  aria-pressed={constraints.irrigation}
+                >
+                  <Droplets size={16} />
+                  Irrigation available
+                </button>
+                <button
+                  className={constraints.livestock ? "mini-priority active" : "mini-priority"}
+                  onClick={() => setConstraints({ ...constraints, livestock: !constraints.livestock })}
+                  aria-pressed={constraints.livestock}
+                >
+                  <Sprout size={16} />
+                  Livestock / forage needed
+                </button>
               </div>
             </section>
           )}
@@ -487,17 +387,6 @@ export default function MapPage() {
               title="Find a location"
             >
               <Search size={19} />
-            </button>
-
-            <button
-              className={openPanel === "info" ? "island-icon-button active" : "island-icon-button"}
-              onClick={() => togglePanel("info")}
-              aria-expanded={openPanel === "info"}
-              aria-controls="island-panel-info"
-              aria-label="Location and indications"
-              title="Location & indications"
-            >
-              <Info size={19} />
             </button>
 
             <button
