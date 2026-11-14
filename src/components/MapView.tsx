@@ -138,13 +138,14 @@ function CountryBorders() {
 function MapController({
   target,
 }: {
-  target: { latitude: number; longitude: number } | null;
+  target: { latitude: number; longitude: number; zoom?: number } | null;
 }) {
   const map = useMap();
 
   useEffect(() => {
     if (!target) return;
-    map.flyTo([target.latitude, target.longitude], 16, {
+    // Coordinates and "my location" zoom to field level; searched places pass their own zoom.
+    map.flyTo([target.latitude, target.longitude], target.zoom ?? 16, {
       duration: 0.9,
     });
   }, [map, target]);
@@ -314,7 +315,7 @@ export default function MapView({
     longitude: 24.9668,
   };
 
-  const [target, setTarget] = useState(defaultLocation);
+  const [target, setTarget] = useState<{ latitude: number; longitude: number; zoom?: number } | null>(defaultLocation);
   const [clickedLocation, setClickedLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -327,9 +328,9 @@ export default function MapView({
     if (drawing) setClickedLocation(null);
   }, []);
 
-  const handleGoTo = useCallback((latitude: number, longitude: number) => {
+  const handleGoTo = useCallback((latitude: number, longitude: number, zoom?: number) => {
     const location = { latitude, longitude };
-    setTarget(location);
+    setTarget({ ...location, zoom });
     setClickedLocation(location);
     onFieldSelected({
       area: 0,

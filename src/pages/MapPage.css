@@ -113,6 +113,159 @@
   font-size: 11px;
 }
 
+/* PLACE SEARCH (city / village / region lookup in "Find a location").
+   Field matches .coordinate-inputs input; the dropdown matches the island panels. */
+
+.place-search {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.place-search-icon {
+  position: absolute;
+  top: 18px;
+  left: 10px;
+  color: var(--text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Search button inside the right end of the field (Enter does the same) */
+.place-search-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--green-dark);
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.place-search-button:hover:not(:disabled) {
+  background: var(--green-light);
+}
+
+.place-search-button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.place-search-spinner {
+  animation: place-search-spin 0.8s linear infinite;
+}
+
+.place-search-input {
+  width: 100%;
+  padding: 9px 38px 9px 30px;
+  color: var(--text);
+  background: #f7fbf8;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  outline: none;
+  font-size: 12px;
+}
+
+.place-search-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(33, 138, 88, 0.09);
+}
+
+.place-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* Opens in place (not floating): the island panel scrolls, so a floating list would be clipped. */
+.place-results {
+  margin-top: 6px;
+  padding: 5px;
+  background: rgba(248, 252, 249, 0.98);
+  border: 1px solid rgba(32, 89, 61, 0.14);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(20, 55, 38, 0.2);
+  backdrop-filter: blur(18px);
+}
+
+.place-results ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.place-results li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.place-results li.active {
+  background: var(--green-light);
+}
+
+.place-results li strong {
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.place-results li span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.place-results-note {
+  margin: 6px 9px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.place-results-credit {
+  margin: 4px 9px 2px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+@keyframes place-search-spin {
+  to { transform: rotate(360deg); }
+}
+
+html[data-theme="dark"] .place-search-input {
+  color: #edf7f0;
+  background: #0d1d15;
+  border-color: rgba(181, 224, 199, 0.22);
+}
+
+html[data-theme="dark"] .place-search-input:focus {
+  border-color: #72d49a;
+}
+
+html[data-theme="dark"] .place-results {
+  background: rgba(13, 29, 21, 0.98);
+  border-color: rgba(181, 224, 199, 0.18);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="dark"] .place-results li.active,
+html[data-theme="dark"] .place-search-button:hover:not(:disabled) {
+  background: #173d2a;
+}
+
+html[data-theme="dark"] .place-results li strong,
+html[data-theme="dark"] .place-search-button {
+  color: #cfe9d9;
+}
+
+html[data-theme="dark"] .place-search-button:disabled {
+  color: var(--text-muted);
+}
+
 .map-overlay {
   position: absolute;
 
