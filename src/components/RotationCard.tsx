@@ -3,12 +3,13 @@ import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  HelpCircle,
   Leaf,
   ShieldCheck,
   TrendingUp,
 } from "lucide-react";
 
-import type { Rotation } from "../types";
+import type { Rotation, RotationYear } from "../types";
 import ScoreBar from "./ScoreBar";
 import { getScoreTone } from "../utils/scoring";
 
@@ -26,6 +27,8 @@ function cropEmoji(crop: string) {
   if (normalized.includes("corn")) return "🌽";
   if (normalized.includes("sunflower")) return "🌻";
   if (normalized.includes("cover")) return "🌱";
+  if (normalized.includes("pea")) return "🫛";
+  if (normalized.includes("sorghum")) return "🌾";
 
   return "🌿";
 }
@@ -81,26 +84,14 @@ export default function RotationCard({
         <div className="rotation-title">
           <h3>{rotation.name}</h3>
 
-          <div className="crop-list">
-            {rotation.crops.map(
-              (crop, index) => (
-                <span
-                  className="crop-pill"
-                  key={crop}
-                >
-                  {cropEmoji(crop)}
-                  {crop}
-
-                  {index <
-                    rotation.crops.length -
-                      1 && (
-                    <span className="arrow">
-                      →
-                    </span>
-                  )}
-                </span>
-              ),
+          <div className="rotation-tags">
+            {rotation.strategy && (
+              <span className={`strategy-tag ${rotation.id === "current" ? "baseline" : ""}`}>
+                {rotation.strategy}
+              </span>
             )}
+            {rotation.fit !== undefined && <span className="fit-tag">Climate & soil fit {rotation.fit}/100</span>}
+            <span className="fit-tag">{rotation.crops.map((crop) => cropEmoji(crop)).join(" ")}</span>
           </div>
         </div>
 
@@ -126,6 +117,8 @@ export default function RotationCard({
       <p className={`rotation-explanation ${!expanded ? "collapsed-explanation" : ""}`}>
         {rotation.explanation}
       </p>
+
+      {rotation.calendar && <RotationCalendar years={rotation.calendar} />}
 
       {collapsible && !expanded && (
         <button
@@ -206,6 +199,23 @@ export default function RotationCard({
             ))}
           </ul>
         </div>
+
+        {rotation.infoGaps && rotation.infoGaps.length > 0 && (
+          <div>
+            <h4>
+              <HelpCircle size={16} />
+              Information gaps
+            </h4>
+            <ul>
+              {rotation.infoGaps.map((gap) => (
+                <li key={gap}>
+                  <HelpCircle size={15} />
+                  {gap}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         </div>
       </>}
 
@@ -220,11 +230,19 @@ export default function RotationCard({
         </span>
       </div>}
 
-      {expanded && <div className="rotation-source">
-        <TrendingUp size={15} />
-        Evidence will combine climate,
-        moisture, vegetation and soil signals.
-      </div>}
+      {expanded && rotation.evidence && rotation.evidence.length > 0 && (
+        <div className="rotation-source rotation-evidence">
+          <TrendingUp size={15} />
+          <div>
+            <strong>Evidence from NASA data for this field</strong>
+            <ul>
+              {rotation.evidence.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {collapsible && expanded && (
         <button
@@ -238,5 +256,42 @@ export default function RotationCard({
         </button>
       )}
     </article>
+  );
+}
+const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+
+function RotationCalendar({ years }: { years: RotationYear[] }) {
+  return (
+    <div className="rotation-calendar" aria-label="Rotation calendar">
+      <div className="calendar-row calendar-head">
+        <span />
+        {MONTH_LETTERS.map((letter, index) => (
+          <i key={index}>{letter}</i>
+        ))}
+      </div>
+      {years.map((year) => (
+        <div className="calendar-row" key={year.label}>
+          <span>{year.label}</span>
+          {MONTH_LETTERS.map((_, month) => {
+            const segment = year.segments.find((seg) => seg.months.includes(month));
+            return (
+              <i
+                key={month}
+                className={segment ? `cell ${segment.role}` : "cell bare"}
+                title={segment ? `${segment.name}` : "Bare soil"}
+              >
+                {segment && segment.months[0] === month ? segment.emoji : ""}
+              </i>
+            );
+          })}
+        </div>
+      ))}
+      <div className="calendar-legend">
+        <span><i className="cell main" /> Main crop</span>
+        <span><i className="cell second" /> Second crop</span>
+        <span><i className="cell cover" /> Cover crop</span>
+        <span><i className="cell bare" /> Bare soil</span>
+      </div>
+    </div>
   );
 }

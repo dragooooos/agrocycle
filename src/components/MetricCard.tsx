@@ -11,7 +11,9 @@ interface MetricCardProps {
   value: string;
   description: string;
   status: "good" | "moderate" | "bad";
-  trend?: number;
+  trend?: number | null;
+  /** Text shown next to the arrow instead of the default "n%". */
+  trendText?: string;
 }
 
 export default function MetricCard({
@@ -21,6 +23,7 @@ export default function MetricCard({
   description,
   status,
   trend,
+  trendText,
 }: MetricCardProps) {
   return (
     <div className="metric-card">
@@ -31,7 +34,7 @@ export default function MetricCard({
           <Icon size={21} />
         </div>
 
-        {trend !== undefined && (
+        {trend !== undefined && trend !== null && (
           <div
             className={`trend ${
               trend > 0
@@ -49,7 +52,7 @@ export default function MetricCard({
               <Minus size={14} />
             )}
 
-            {Math.abs(trend)}%
+            {trendText ?? `${Math.abs(trend)}%`}
           </div>
         )}
       </div>

@@ -1,7 +1,9 @@
 import "./MapPage.css";
 import {
   ArrowRight,
+  Bug,
   Check,
+  Coins,
   CloudRain,
   CloudRainWind,
   CloudSun,
@@ -18,15 +20,29 @@ import {
   Snowflake,
   Sprout,
   Square,
+  Shovel,
   Thermometer,
   ThermometerSun,
+  Tractor,
   TrendingDown,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MapView from "../components/MapView";
-import type { AreaUnit, FieldSelection, IndicatorId, PriorityId } from "../types";
+import type { AreaUnit, FarmerConstraints, FieldSelection, IndicatorId, PriorityId } from "../types";
+import { CROP_BY_ID, SELECTABLE_CROPS } from "../data/crops";
+import { readIndicators } from "../data/layers";
+
+const readConstraints = (): FarmerConstraints => {
+  try {
+    const raw = sessionStorage.getItem("farmrotate:constraints");
+    if (raw) return { irrigation: false, livestock: false, currentCrops: [], ...JSON.parse(raw) };
+  } catch {
+    // ignore
+  }
+  return { irrigation: false, livestock: false, currentCrops: [] };
+};
 
 const priorityOptions: {
   id: PriorityId;
@@ -37,6 +53,8 @@ const priorityOptions: {
   { id: "soil", label: "Build soil health", icon: Sprout },
   { id: "heat", label: "Handle heat", icon: Flame },
   { id: "erosion", label: "Protect soil", icon: Mountain },
+  { id: "pest", label: "Break pest cycles", icon: Bug },
+  { id: "income", label: "Protect income", icon: Coins },
 ];
 
 const indicatorOptions: {
@@ -53,6 +71,8 @@ const indicatorOptions: {
   { id: "extremePrecipitation", label: "Extreme precipitation", icon: CloudRainWind },
   { id: "vegetationStress", label: "Vegetation stress", icon: Leaf },
   { id: "waterTrends", label: "Long-term water trends", icon: TrendingDown },
+  { id: "slopeErosion", label: "Slope & erosion", icon: Mountain },
+  { id: "soilProperties", label: "Soil properties", icon: Shovel },
 ];
 
 const unitLabels: Record<AreaUnit, string> = {
@@ -71,7 +91,7 @@ function convertArea(squareMeters: number, unit: AreaUnit) {
   return squareMeters;
 }
 
-type PanelId = "location" | "info" | "priorities" | "indicators";
+type PanelId = "location" | "info" | "priorities" | "indicators" | "farm";
 
 export default function MapPage() {
   const navigate = useNavigate();
@@ -97,11 +117,21 @@ export default function MapPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const [indicators, setIndicators] = useState<IndicatorId[]>([
-    "temperature",
-    "rainfall",
-    "soilMoisture",
-  ]);
+  const [indicators, setIndicators] = useState<IndicatorId[]>(readIndicators);
+  const [constraints, setConstraints] = useState<FarmerConstraints>(readConstraints);
+
+  const addCrop = (id: string) => {
+    if (!id) return;
+    setConstraints((current) =>
+      current.currentCrops.length >= 4 ? current : { ...current, currentCrops: [...current.currentCrops, id] },
+    );
+  };
+
+  const removeCrop = (index: number) =>
+    setConstraints((current) => ({
+      ...current,
+      currentCrops: current.currentCrops.filter((_, i) => i !== index),
+    }));
 
   const toggleIndicator = (id: IndicatorId) => {
     setIndicators((current) =>
@@ -135,6 +165,7 @@ export default function MapPage() {
     );
     sessionStorage.setItem("farmrotate:priorities", JSON.stringify(priorities));
     sessionStorage.setItem("farmrotate:indicators", JSON.stringify(indicators));
+    sessionStorage.setItem("farmrotate:constraints", JSON.stringify(constraints));
     sessionStorage.setItem("farmrotate:note", "");
     navigate("/analysis");
   };
@@ -312,6 +343,11 @@ export default function MapPage() {
                 </button>
               </div>
 
+              <p className="island-hint">
+                Your choices load first; everything else keeps loading in the background, so you can add it
+                later on the analysis page without waiting.
+              </p>
+
               <div className="indicator-actions">
                 <button onClick={() => setIndicators(indicatorOptions.map((option) => option.id))}>
                   Select all
@@ -334,6 +370,76 @@ export default function MapPage() {
                     </button>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {openPanel === "farm" && (
+            <section
+              id="island-panel-farm"
+              className="island-panel"
+              role="dialog"
+              aria-label="Your farm"
+            >
+              <div className="island-panel-header">
+                <div>
+                  <span className="eyebrow">YOUR FARM · OPTIONAL</span>
+                </div>
+                <button
+                  className="island-close"
+                  onClick={() => setOpenPanel(null)}
+                  aria-label="Close panel"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <label className="farm-label" htmlFor="current-crop">
+                Crops in your current rotation, in order
+              </label>
+              <div className="crop-chips">
+                {constraints.currentCrops.map((id, index) => (
+                  <span key={`${id}-${index}`} className="crop-chip">
+                    {CROP_BY_ID[id]?.emoji} {CROP_BY_ID[id]?.name ?? id}
+                    <button type="button" aria-label="Remove crop" onClick={() => removeCrop(index)}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+                {constraints.currentCrops.length < 4 && (
+                  <select id="current-crop" value="" onChange={(event) => addCrop(event.target.value)}>
+                    <option value="">+ Add crop</option>
+                    {SELECTABLE_CROPS.map((crop) => (
+                      <option key={crop.id} value={crop.id}>
+                        {crop.emoji} {crop.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {constraints.currentCrops.length === 0 && (
+                <small className="farm-hint">
+                  Leave empty and AgroCycle assumes the most common local rotation as the baseline.
+                </small>
+              )}
+
+              <div className="farm-toggles">
+                <label className={constraints.irrigation ? "farm-toggle active" : "farm-toggle"}>
+                  <input
+                    type="checkbox"
+                    checked={constraints.irrigation}
+                    onChange={(event) => setConstraints({ ...constraints, irrigation: event.target.checked })}
+                  />
+                  <Droplets size={15} /> Irrigation available
+                </label>
+                <label className={constraints.livestock ? "farm-toggle active" : "farm-toggle"}>
+                  <input
+                    type="checkbox"
+                    checked={constraints.livestock}
+                    onChange={(event) => setConstraints({ ...constraints, livestock: event.target.checked })}
+                  />
+                  <Sprout size={15} /> Livestock / forage needed
+                </label>
               </div>
             </section>
           )}
@@ -386,6 +492,20 @@ export default function MapPage() {
               <CloudSun size={19} />
               {indicators.length > 0 && (
                 <span className="island-badge">{indicators.length}</span>
+              )}
+            </button>
+
+            <button
+              className={openPanel === "farm" ? "island-icon-button active" : "island-icon-button"}
+              onClick={() => togglePanel("farm")}
+              aria-expanded={openPanel === "farm"}
+              aria-controls="island-panel-farm"
+              aria-label="Your farm"
+              title="Your farm: current rotation, irrigation, livestock"
+            >
+              <Tractor size={19} />
+              {(constraints.currentCrops.length > 0 || constraints.irrigation || constraints.livestock) && (
+                <span className="island-badge">✓</span>
               )}
             </button>
 
