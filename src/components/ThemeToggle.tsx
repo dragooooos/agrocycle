@@ -1,7 +1,18 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
-export default function ThemeToggle() {
+const THEME_EVENT = "farmrotate-themechange";
+
+interface ThemeToggleProps {
+  className?: string;
+  /** Show a text label next to the icon (used in the sidebar). */
+  showLabel?: boolean;
+}
+
+export default function ThemeToggle({
+  className = "theme-toggle",
+  showLabel = false,
+}: ThemeToggleProps) {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -9,8 +20,14 @@ export default function ThemeToggle() {
 
     if (stored === "dark") {
       document.documentElement.dataset.theme = "dark";
-      setDark(true);
     }
+    setDark(document.documentElement.dataset.theme === "dark");
+
+    // Keep every toggle on screen in sync when one of them is clicked.
+    const sync = () =>
+      setDark(document.documentElement.dataset.theme === "dark");
+    window.addEventListener(THEME_EVENT, sync);
+    return () => window.removeEventListener(THEME_EVENT, sync);
   }, []);
 
   const toggle = () => {
@@ -24,15 +41,30 @@ export default function ThemeToggle() {
     );
 
     setDark(next);
+    window.dispatchEvent(new Event(THEME_EVENT));
   };
+
+  const label = dark ? "Light mode" : "Dark mode";
 
   return (
     <button
-      className="theme-toggle"
+      className={className}
       onClick={toggle}
       aria-label="Toggle theme"
+      title={label}
     >
-      {dark ? <Sun size={18} /> : <Moon size={18} />}
+      {showLabel ? (
+        <>
+          <span className="side-nav-icon">
+            {dark ? <Sun size={19} /> : <Moon size={19} />}
+          </span>
+          <span className="side-nav-label">{label}</span>
+        </>
+      ) : dark ? (
+        <Sun size={18} />
+      ) : (
+        <Moon size={18} />
+      )}
     </button>
   );
 }

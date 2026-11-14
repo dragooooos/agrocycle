@@ -1,5 +1,9 @@
 import { BarChart3, Home, Map } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import ThemeToggle from "./ThemeToggle";
+
+/** Pages can render their own sidebar actions into this element via a portal. */
+export const SIDE_NAV_ACTIONS_ID = "side-nav-actions";
 
 const links = [
   { to: "/", label: "Home", icon: Home },
@@ -32,6 +36,11 @@ export default function Sidebar() {
           </li>
         ))}
       </ul>
+
+      <div className="side-nav-footer">
+        <div id={SIDE_NAV_ACTIONS_ID} className="side-nav-actions" />
+        <ThemeToggle className="side-nav-link side-nav-button" showLabel />
+      </div>
     </nav>
   );
 }

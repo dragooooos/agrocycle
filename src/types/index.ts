@@ -8,6 +8,17 @@ export type PriorityId =
   | "pest"
   | "income";
 
+export type IndicatorId =
+  | "temperature"
+  | "heatStress"
+  | "rainfall"
+  | "soilMoisture"
+  | "evaporation"
+  | "frostRisk"
+  | "extremePrecipitation"
+  | "vegetationStress"
+  | "waterTrends";
+
 export type SelectionType = "point" | "area";
 
 export type AreaUnit =
