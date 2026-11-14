@@ -1,6 +1,6 @@
 import "./MapPage.css";
 import {
-  ArrowRight,
+  BarChart3,
   Bug,
   Coins,
   CloudRain,
@@ -95,6 +95,22 @@ type PanelId = "location" | "priorities" | "indicators" | "farm";
 export default function MapPage() {
   const navigate = useNavigate();
   const [field, setField] = useState<FieldSelection | null>(null);
+  const [showContinueHint, setShowContinueHint] = useState(false);
+
+  // The first time someone selects a location, point at the continue button once.
+  useEffect(() => {
+    if (!field) return;
+    const key = "agrocycle:continue-hint-seen";
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch {
+      return; // storage unavailable: skip the hint rather than repeat it every time
+    }
+    setShowContinueHint(true);
+    const timer = setTimeout(() => setShowContinueHint(false), 7000);
+    return () => clearTimeout(timer);
+  }, [field]);
   const [unit] = useState<AreaUnit>("ha");
   const [priorities, setPriorities] = useState<PriorityId[]>([
     "water",
@@ -454,15 +470,26 @@ export default function MapPage() {
               </span>
             </div>
 
-            <button
-              className="island-go-button"
-              disabled={!field}
-              onClick={analyze}
-              aria-label="Continue to analysis"
-              title={field ? "Continue to analysis" : "Select a point or field first"}
-            >
-              <ArrowRight size={19} />
-            </button>
+            <div className="island-go-wrap">
+              {showContinueHint && (
+                <div className="island-continue-hint" role="status" onClick={() => setShowContinueHint(false)}>
+                  Continue to analysis
+                </div>
+              )}
+              <button
+                className="island-go-button"
+                disabled={!field}
+                onClick={() => {
+                  setShowContinueHint(false);
+                  analyze();
+                }}
+                aria-label="Continue to analysis"
+                title={field ? "Continue to analysis" : "Select a point or field first"}
+              >
+                {/* Same icon as "Analysis" in the top navigation: this button goes there. */}
+                <BarChart3 size={19} />
+              </button>
+            </div>
           </nav>
         </div>
       </main>

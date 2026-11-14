@@ -282,9 +282,9 @@ export default function CoordinatesBox({
         </label>
       </div>
 
-      <button className="secondary-button coordinates-button" onClick={handleSubmit}>
+      <button className="location-button" onClick={handleSubmit}>
         <Navigation size={15} />
-        Go to coordinates
+        Show on map
       </button>
 
       {onUseMyLocation && (
