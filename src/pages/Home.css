@@ -57,13 +57,6 @@ html[data-theme="dark"] .satellite-fallback small {
 
 /* LANDING STAGE: huge Earth rising from the bottom, centered copy and action */
 
-.landing-theme-toggle {
-  position: fixed;
-  top: 18px;
-  right: clamp(18px, 3vw, 36px);
-  z-index: 20;
-}
-
 .landing-stage {
   position: relative;
   height: 100svh;
@@ -160,9 +153,6 @@ html[data-theme="dark"] .satellite-fallback small {
   .landing-stage-copy h1 { font-size: 40px; }
 
   .landing-stage-earth { width: max(200vh, 220vw); filter: blur(3px); }
-}
-@media (max-width: 760px) {
-  .landing-theme-toggle { top: 10px; right: 12px; z-index: 1200; }
 }
 
 @media (max-width: 760px) {

@@ -2,17 +2,12 @@ import "./Home.css";
 import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EarthScene from "../components/EarthScene";
-import ThemeToggle from "../components/ThemeToggle";
 
 export default function Home() {
   const navigate = useNavigate();
 
   return (
     <div className="app-shell">
-      <div className="landing-theme-toggle">
-        <ThemeToggle />
-      </div>
-
       <main className="landing-stage">
         <div className="landing-stage-earth" aria-hidden="true">
           <div className="scene-glow" />
