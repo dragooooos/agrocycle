@@ -75,6 +75,17 @@ export default function Analysis() {
   const topRotation =
     rankedRotations[0];
 
+  const currentRotation =
+    rotations.find((rotation) => rotation.id === "current") ?? rotations[0];
+
+  const alternativeRotations =
+    rankedRotations.filter((rotation) => rotation.id !== "current");
+
+  const displayedRotations = [
+    currentRotation,
+    ...alternativeRotations,
+  ];
+
   const score = demoField.resilienceScore;
   const tone = getScoreTone(score);
 
@@ -112,7 +123,11 @@ export default function Analysis() {
                 </span>
 
                 <strong>
-                  {field.area} ha
+                  {field.selectionType === "point"
+                    ? "Point analysis"
+                    : `${field.area.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })} m²`}
                 </strong>
               </div>
             )}
@@ -389,12 +404,13 @@ export default function Analysis() {
             </div>
 
             <div className="rotation-list">
-              {rankedRotations.map(
+              {displayedRotations.map(
                 (rotation, index) => (
                   <RotationCard
                     key={rotation.id}
                     rotation={rotation}
                     rank={index + 1}
+                    collapsible={rotation.id !== "current"}
                   />
                 ),
               )}

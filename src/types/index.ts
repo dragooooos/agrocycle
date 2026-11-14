@@ -8,10 +8,21 @@ export type PriorityId =
   | "pest"
   | "income";
 
+export type SelectionType = "point" | "area";
+
+export type AreaUnit =
+  | "m2"
+  | "ha"
+  | "km2"
+  | "acres"
+  | "ft2";
+
 export interface FieldSelection {
   area: number;
   latitude: number;
   longitude: number;
+  selectionType: SelectionType;
+  areaUnit?: AreaUnit;
   geoJson?: unknown;
 }
 
@@ -59,7 +70,6 @@ export interface Rotation {
   id: string;
   name: string;
   crops: string[];
-
   score: number;
   water: number;
   soil: number;
@@ -67,11 +77,9 @@ export interface Rotation {
   erosion: number;
   pest: number;
   market: number;
-
   explanation: string;
   benefits: string[];
   risks: string[];
-
   confidence: "high" | "medium" | "low";
   recommended: boolean;
 }

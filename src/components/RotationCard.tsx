@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -13,6 +15,7 @@ import { getScoreTone } from "../utils/scoring";
 interface RotationCardProps {
   rotation: Rotation;
   rank: number;
+  collapsible?: boolean;
 }
 
 function cropEmoji(crop: string) {
@@ -30,7 +33,9 @@ function cropEmoji(crop: string) {
 export default function RotationCard({
   rotation,
   rank,
+  collapsible = false,
 }: RotationCardProps) {
+  const [expanded, setExpanded] = useState(!collapsible);
   const tone = getScoreTone(
     rotation.score,
   );
@@ -107,7 +112,7 @@ export default function RotationCard({
         </div>
       </div>
 
-      {highlights.length > 0 && (
+      {expanded && highlights.length > 0 && (
         <div className="rotation-highlights">
           {highlights.map((highlight) => (
             <span key={highlight}>
@@ -118,11 +123,24 @@ export default function RotationCard({
         </div>
       )}
 
-      <p className="rotation-explanation">
+      <p className={`rotation-explanation ${!expanded ? "collapsed-explanation" : ""}`}>
         {rotation.explanation}
       </p>
 
-      <div className="rotation-scores">
+      {collapsible && !expanded && (
+        <button
+          type="button"
+          className="see-more-button"
+          onClick={() => setExpanded(true)}
+          aria-expanded={false}
+        >
+          See more
+          <span>↓</span>
+        </button>
+      )}
+
+      {expanded && <>
+        <div className="rotation-scores">
         <ScoreBar
           value={rotation.water}
           label="💧 Water resilience"
@@ -188,9 +206,10 @@ export default function RotationCard({
             ))}
           </ul>
         </div>
-      </div>
+        </div>
+      </>}
 
-      <div className="confidence">
+      {expanded && <div className="confidence">
         <ShieldCheck size={16} />
 
         <span>
@@ -199,13 +218,25 @@ export default function RotationCard({
             {rotation.confidence}
           </strong>
         </span>
-      </div>
+      </div>}
 
-      <div className="rotation-source">
+      {expanded && <div className="rotation-source">
         <TrendingUp size={15} />
         Evidence will combine climate,
         moisture, vegetation and soil signals.
-      </div>
+      </div>}
+
+      {collapsible && expanded && (
+        <button
+          type="button"
+          className="see-more-button see-less-button"
+          onClick={() => setExpanded(false)}
+          aria-expanded={true}
+        >
+          Show less
+          <span>↑</span>
+        </button>
+      )}
     </article>
   );
 }

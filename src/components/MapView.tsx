@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -16,35 +16,18 @@ import type { FieldSelection } from "../types";
 import CoordinatesBox from "./CoordinatesBox";
 
 interface MapViewProps {
-  onFieldSelected: (
-    selection: FieldSelection,
-  ) => void;
-}
-
-interface MapControllerProps {
-  target: {
-    latitude: number;
-    longitude: number;
-  } | null;
+  onFieldSelected: (selection: FieldSelection) => void;
+  initialLocation?: { latitude: number; longitude: number } | null;
 }
 
 function MapResizeFix() {
   const map = useMap();
 
   useEffect(() => {
-    const resize = () => {
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    };
-
+    const resize = () => setTimeout(() => map.invalidateSize(), 100);
     resize();
-
     window.addEventListener("resize", resize);
-
-    return () => {
-      window.removeEventListener("resize", resize);
-    };
+    return () => window.removeEventListener("resize", resize);
   }, [map]);
 
   return null;
@@ -52,34 +35,73 @@ function MapResizeFix() {
 
 function MapController({
   target,
-}: MapControllerProps) {
+}: {
+  target: { latitude: number; longitude: number } | null;
+}) {
   const map = useMap();
 
   useEffect(() => {
     if (!target) return;
-
-    map.flyTo(
-      [target.latitude, target.longitude],
-      13,
-      {
-        duration: 0.8,
-      },
-    );
+    map.flyTo([target.latitude, target.longitude], 16, {
+      duration: 0.9,
+    });
   }, [map, target]);
+
+  return null;
+}
+
+function LocationMarker({
+  location,
+}: {
+  location: { latitude: number; longitude: number } | null;
+}) {
+  if (!location) return null;
+
+  return (
+    <LMarker latitude={location.latitude} longitude={location.longitude} />
+  );
+}
+
+function LMarker({
+  latitude,
+  longitude,
+}: {
+  latitude: number;
+  longitude: number;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const marker = L.circleMarker([latitude, longitude], {
+      radius: 8,
+      weight: 3,
+      color: "#ffffff",
+      fillColor: "#218a58",
+      fillOpacity: 1,
+    }).addTo(map);
+
+    return () => {
+      marker.remove();
+    };
+  }, [map, latitude, longitude]);
 
   return null;
 }
 
 function MapClickHandler({
   onLocation,
+  disabled,
 }: {
-  onLocation: (
-    latitude: number,
-    longitude: number,
-  ) => void;
+  onLocation: (latitude: number, longitude: number) => void;
+  disabled: boolean;
 }) {
   useMapEvents({
     click(event) {
+      // Geoman emits map clicks while drawing. Never treat those clicks as
+      // point selections, otherwise MapController can fly the map underneath
+      // the polygon/rectangle and create a visible jump/glitch.
+      if (disabled) return;
+
       onLocation(
         Number(event.latlng.lat.toFixed(6)),
         Number(event.latlng.lng.toFixed(6)),
@@ -92,18 +114,16 @@ function MapClickHandler({
 
 function DrawingTools({
   onFieldSelected,
-}: MapViewProps) {
+  onDrawingStateChange,
+}: {
+  onFieldSelected: (selection: FieldSelection) => void;
+  onDrawingStateChange: (drawing: boolean) => void;
+}) {
   const map = useMap();
 
   useEffect(() => {
     const pm = (map as any).pm;
-
-    if (!pm) {
-      console.warn(
-        "Leaflet Geoman was not loaded.",
-      );
-      return;
-    }
+    if (!pm) return;
 
     pm.addControls({
       position: "topleft",
@@ -122,40 +142,48 @@ function DrawingTools({
 
     const handleCreate = (event: any) => {
       const layer = event.layer;
-
-      if (!(layer instanceof L.Polygon)) {
-        return;
-      }
+      if (!(layer instanceof L.Polygon)) return;
 
       const geoJson = layer.toGeoJSON();
       const squareMeters = area(geoJson);
-      const hectares = squareMeters / 10000;
-
-      const center = layer
-        .getBounds()
-        .getCenter();
+      const center = layer.getBounds().getCenter();
 
       onFieldSelected({
-        area: Number(hectares.toFixed(2)),
-        latitude: Number(
-          center.lat.toFixed(6),
-        ),
-        longitude: Number(
-          center.lng.toFixed(6),
-        ),
+        area: squareMeters,
+        latitude: Number(center.lat.toFixed(6)),
+        longitude: Number(center.lng.toFixed(6)),
+        selectionType: "area",
+        areaUnit: "m2",
         geoJson,
       });
     };
 
+    const handleDrawStart = () => {
+      onDrawingStateChange(true);
+      // Explicitly disable Leaflet panning while Geoman is drawing.
+      // Geoman normally handles this, but making it explicit avoids a
+      // one-frame drag/jump on some browsers and touchpads.
+      map.dragging.disable();
+    };
+
+    const handleDrawEnd = () => {
+      onDrawingStateChange(false);
+      map.dragging.enable();
+    };
+
     map.on("pm:create", handleCreate);
+    map.on("pm:drawstart", handleDrawStart);
+    map.on("pm:drawend", handleDrawEnd);
 
     return () => {
       map.off("pm:create", handleCreate);
-
+      map.off("pm:drawstart", handleDrawStart);
+      map.off("pm:drawend", handleDrawEnd);
+      map.dragging.enable();
       try {
         pm.removeControls();
       } catch {
-        // Ignore cleanup errors.
+        // cleanup
       }
     };
   }, [map, onFieldSelected]);
@@ -165,102 +193,112 @@ function DrawingTools({
 
 export default function MapView({
   onFieldSelected,
+  initialLocation = null,
 }: MapViewProps) {
-  const [target, setTarget] = useState<{
+  const defaultLocation = initialLocation ?? {
+    latitude: 45.9432,
+    longitude: 24.9668,
+  };
+
+  const [target, setTarget] = useState(defaultLocation);
+  const [clickedLocation, setClickedLocation] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
 
-  const [clickedLocation, setClickedLocation] =
-    useState<{
-      latitude: number;
-      longitude: number;
-    } | null>(null);
+  const handleGoTo = useCallback((latitude: number, longitude: number) => {
+    const location = { latitude, longitude };
+    setTarget(location);
+    setClickedLocation(location);
+    onFieldSelected({
+      area: 0,
+      latitude,
+      longitude,
+      selectionType: "point",
+    });
+  }, [onFieldSelected]);
 
-  const handleGoTo = useCallback(
-    (latitude: number, longitude: number) => {
-      setTarget({
-        latitude,
-        longitude,
-      });
+  const handleMapClick = useCallback((latitude: number, longitude: number) => {
+    const location = { latitude, longitude };
+    setClickedLocation(location);
+    // Crucially: no setTarget() here. Clicking the map should not trigger
+    // MapController.flyTo(), which was the source of the visual jump.
+    onFieldSelected({
+      area: 0,
+      latitude,
+      longitude,
+      selectionType: "point",
+    });
+  }, [onFieldSelected]);
 
-      setClickedLocation({
-        latitude,
-        longitude,
-      });
-    },
-    [],
-  );
+  const handleUseMyLocation = useCallback(() => {
+    if (!navigator.geolocation) return;
 
-  const handleMapClick = useCallback(
-    (latitude: number, longitude: number) => {
-      setClickedLocation({
-        latitude,
-        longitude,
-      });
-    },
-    [],
-  );
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        handleGoTo(
+          Number(position.coords.latitude.toFixed(6)),
+          Number(position.coords.longitude.toFixed(6)),
+        );
+      },
+      () => {
+        // Browser denied/unavailable. The coordinate form remains available.
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }, [handleGoTo]);
 
   return (
-    <div className="map-wrapper">
+    <div className="map-wrapper fullscreen-map">
       <MapContainer
-        center={[45.9432, 24.9668]}
-        zoom={7}
+        center={[defaultLocation.latitude, defaultLocation.longitude]}
+        zoom={16}
         minZoom={2}
-        maxZoom={19}
+        maxZoom={20}
         scrollWheelZoom
         worldCopyJump
         zoomControl
         className="map"
       >
         <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="Imagery © Esri, Maxar, Earthstar Geographics"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           maxNativeZoom={19}
-          maxZoom={19}
-          noWrap={false}
+          maxZoom={20}
         />
 
         <MapResizeFix />
-
         <MapController target={target} />
-
-        <MapClickHandler
-          onLocation={handleMapClick}
-        />
-
-        <DrawingTools
-          onFieldSelected={onFieldSelected}
-        />
+        <MapClickHandler onLocation={handleMapClick} disabled={isDrawing} />
+        <DrawingTools onFieldSelected={onFieldSelected} onDrawingStateChange={setIsDrawing} />
+        <LocationMarker location={clickedLocation} />
       </MapContainer>
 
       <div className="map-top-card">
         <CoordinatesBox
           onGoTo={handleGoTo}
+          onUseMyLocation={handleUseMyLocation}
         />
       </div>
 
       <div className="map-overlay">
-        <div className="map-title">
-          Select your field
-        </div>
-
+        <div className="map-title">Field Explorer</div>
         <div className="map-subtitle">
-          Draw a polygon around the field, or click
-          anywhere on the map to inspect a location.
+          Click once for point analysis, or use the polygon tools to measure a field.
+          Satellite imagery is used as the basemap.
         </div>
 
         {clickedLocation && (
           <div className="map-coordinates">
-            <span>
-              {clickedLocation.latitude.toFixed(6)}
-            </span>
-            <span>
-              {clickedLocation.longitude.toFixed(6)}
-            </span>
+            <span>{clickedLocation.latitude.toFixed(6)}°</span>
+            <span>{clickedLocation.longitude.toFixed(6)}°</span>
           </div>
         )}
+      </div>
+
+      <div className="map-attribution-note">
+        Basemap: Esri World Imagery
       </div>
     </div>
   );

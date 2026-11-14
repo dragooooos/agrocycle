@@ -30,3 +30,13 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Earth visualization
+
+The landing-page globe uses NASA's Blue Marble true-color global mosaic as the preferred Earth texture, with a Three.js example texture as a fallback. NASA describes the Blue Marble mosaic as a satellite-based, true-color global image using MODIS observations. See: https://svs.gsfc.nasa.gov/2915
+
+The globe also includes a procedural fallback so the hero remains visible if remote imagery is unavailable.
+
+## 3D Hero
+
+The landing page uses NASA's Landsat 8 GLB as the primary interactive 3D asset. NASA lists the model in its 3D Resources library and credits NASA/Christopher R. Meaney. The browser loads the GLB from the official NASA asset host; a procedural fallback is shown if the remote asset is unavailable.
