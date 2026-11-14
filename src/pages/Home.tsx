@@ -22,9 +22,7 @@ export default function Home() {
           </h1>
 
           <p className="hero-description">
-            AgroCycle combines Earth observation signals, local field context,
-            crop characteristics and farmer priorities to help you explore
-            more resilient crop-rotation strategies.
+            AgroCycle combines satellite data, your field’s conditions and your priorities to help you find more resilient crop rotations.
           </p>
 
           <div className="landing-stage-action">

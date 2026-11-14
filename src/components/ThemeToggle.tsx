@@ -56,14 +56,14 @@ export default function ThemeToggle({
       {showLabel ? (
         <>
           <span className="side-nav-icon">
-            {dark ? <Sun size={19} /> : <Moon size={19} />}
+            {dark ? <Sun size={17} /> : <Moon size={17} />}
           </span>
           <span className="side-nav-label">{label}</span>
         </>
       ) : dark ? (
-        <Sun size={18} />
+        <Sun size={17} />
       ) : (
-        <Moon size={18} />
+        <Moon size={17} />
       )}
     </button>
   );

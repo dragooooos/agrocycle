@@ -1,17 +1,8 @@
-import { useState } from "react";
-
-import {
-  AlertTriangle,
-  CheckCircle2,
-  HelpCircle,
-  Leaf,
-  ShieldCheck,
-  TrendingUp,
-} from "lucide-react";
+import { useState, type CSSProperties } from "react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import type { Rotation, RotationYear } from "../types";
 import ScoreBar from "./ScoreBar";
-import { getScoreTone } from "../utils/scoring";
 
 interface RotationCardProps {
   rotation: Rotation;
@@ -19,246 +10,137 @@ interface RotationCardProps {
   collapsible?: boolean;
 }
 
-function cropEmoji(crop: string) {
-  const normalized = crop.toLowerCase();
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
-  if (normalized.includes("wheat")) return "🌾";
-  if (normalized.includes("soy")) return "🫘";
-  if (normalized.includes("corn")) return "🌽";
-  if (normalized.includes("sunflower")) return "🌻";
-  if (normalized.includes("cover")) return "🌱";
-  if (normalized.includes("pea")) return "🫛";
-  if (normalized.includes("sorghum")) return "🌾";
+/** The same line can be generated twice (e.g. one crop in years 1 and 3); show it once. */
+const unique = (lines: string[] = []) => [...new Set(lines)];
 
-  return "🌿";
+/**
+ * Planting and harvest month for every crop in the rotation, listed once each.
+ * A segment's months are stored in growing order, so the first is sowing and the last is harvest.
+ */
+export function cropSchedule(years: RotationYear[] = []) {
+  const seen = new Set<string>();
+  const out: { name: string; plant: string; harvest: string; wholeYear: boolean }[] = [];
+  years.forEach((year) =>
+    year.segments.forEach((segment) => {
+      const key = `${segment.name}-${segment.months[0]}-${segment.months[segment.months.length - 1]}`;
+      if (seen.has(key) || segment.months.length === 0) return;
+      seen.add(key);
+      out.push({
+        name: segment.name,
+        plant: MONTHS[segment.months[0]],
+        harvest: MONTHS[segment.months[segment.months.length - 1]],
+        wholeYear: segment.months.length >= 12,
+      });
+    }),
+  );
+  return out;
 }
 
-export default function RotationCard({
-  rotation,
-  rank,
-  collapsible = false,
-}: RotationCardProps) {
+export default function RotationCard({ rotation, rank, collapsible = false }: RotationCardProps) {
   const [expanded, setExpanded] = useState(!collapsible);
-  const tone = getScoreTone(
-    rotation.score,
-  );
-
-  const highlights = [];
-
-  if (rotation.water >= 80) {
-    highlights.push("Water-smart");
-  }
-
-  if (rotation.soil >= 80) {
-    highlights.push("Soil-building");
-  }
-
-  if (rotation.heat >= 80) {
-    highlights.push("Heat-tolerant");
-  }
-
-  if (rotation.erosion >= 80) {
-    highlights.push("Erosion-aware");
-  }
+  const schedule = cropSchedule(rotation.calendar);
+  const meta = [
+    rotation.recommended ? "Best match for your priorities" : null,
+    rotation.strategy,
+    rotation.fit !== undefined ? `Climate & soil fit ${rotation.fit}/100` : null,
+  ].filter(Boolean);
 
   return (
-    <article
-      className={`rotation-card ${
-        rotation.recommended
-          ? "recommended"
-          : ""
-      }`}
-    >
-      {rotation.recommended && (
-        <div className="recommended-badge">
-          <CheckCircle2 size={14} />
-          Best match for your priorities
-        </div>
-      )}
-
+    <article className={`rotation-card ${rotation.recommended ? "recommended" : ""}`}>
       <div className="rotation-header">
-        <div className="rotation-rank">
-          #{rank}
-        </div>
-
+        <span className="rotation-rank">{rank}</span>
         <div className="rotation-title">
           <h3>{rotation.name}</h3>
-
-          <div className="rotation-tags">
-            {rotation.strategy && (
-              <span className={`strategy-tag ${rotation.id === "current" ? "baseline" : ""}`}>
-                {rotation.strategy}
-              </span>
-            )}
-            {rotation.fit !== undefined && <span className="fit-tag">Climate & soil fit {rotation.fit}/100</span>}
-            <span className="fit-tag">{rotation.crops.map((crop) => cropEmoji(crop)).join(" ")}</span>
-          </div>
+          <p className="rotation-meta">{meta.join(" · ")}</p>
         </div>
-
-        <div
-          className={`rotation-score ${tone}`}
-        >
+        <div className="rotation-score">
           <strong>{rotation.score}</strong>
           <span>/100</span>
         </div>
       </div>
 
-      {expanded && highlights.length > 0 && (
-        <div className="rotation-highlights">
-          {highlights.map((highlight) => (
-            <span key={highlight}>
-              <CheckCircle2 size={13} />
-              {highlight}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <p className={`rotation-explanation ${!expanded ? "collapsed-explanation" : ""}`}>
-        {rotation.explanation}
-      </p>
-
       {rotation.calendar && <RotationCalendar years={rotation.calendar} />}
 
-      {collapsible && !expanded && (
-        <button
-          type="button"
-          className="see-more-button"
-          onClick={() => setExpanded(true)}
-          aria-expanded={false}
-        >
-          See more
-          <span>↓</span>
-        </button>
+      {schedule.length > 0 && (
+        <p className="rotation-schedule">
+          {schedule.map((crop, index) => (
+            <span key={`${crop.name}-${index}`}>
+              <b>{crop.name}</b>{" "}
+              {crop.wholeYear ? "all year" : `plant ${crop.plant}, harvest ${crop.harvest}`}
+            </span>
+          ))}
+        </p>
       )}
 
-      {expanded && <>
-        <div className="rotation-scores">
-        <ScoreBar
-          value={rotation.water}
-          label="💧 Water resilience"
-        />
+      {expanded && (
+        <>
+          <div className="rotation-scores">
+            <ScoreBar value={rotation.water} label="Water" />
+            <ScoreBar value={rotation.soil} label="Soil health" />
+            <ScoreBar value={rotation.heat} label="Heat" />
+            <ScoreBar value={rotation.erosion} label="Erosion" />
+            <ScoreBar value={rotation.pest} label="Pests" />
+            <ScoreBar value={rotation.market} label="Market" />
+          </div>
 
-        <ScoreBar
-          value={rotation.soil}
-          label="🌱 Soil health"
-        />
-
-        <ScoreBar
-          value={rotation.heat}
-          label="🌡️ Heat tolerance"
-        />
-
-        <ScoreBar
-          value={rotation.erosion}
-          label="⛰️ Erosion protection"
-        />
-
-        <ScoreBar
-          value={rotation.pest}
-          label="🐛 Pest disruption"
-        />
-
-        <ScoreBar
-          value={rotation.market}
-          label="💰 Market fit"
-        />
-      </div>
-
-      <div className="rotation-columns">
-        <div>
-          <h4>
-            <Leaf size={16} />
-            Potential benefits
-          </h4>
-
-          <ul>
-            {rotation.benefits.map(
-              (benefit) => (
-                <li key={benefit}>
-                  <CheckCircle2 size={15} />
-                  {benefit}
-                </li>
-              ),
+          <div className="rotation-columns">
+            {unique(rotation.benefits).length > 0 && (
+              <div>
+                <h4>Benefits</h4>
+                <ul>
+                  {unique(rotation.benefits).map((benefit, index) => (
+                    <li key={index}>
+                      <CheckCircle2 size={14} />
+                      {benefit}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
-          </ul>
-        </div>
-
-        <div>
-          <h4>
-            <AlertTriangle size={16} />
-            Things to verify
-          </h4>
-
-          <ul>
-            {rotation.risks.map((risk) => (
-              <li key={risk}>
-                <AlertTriangle size={15} />
-                {risk}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {rotation.infoGaps && rotation.infoGaps.length > 0 && (
-          <div>
-            <h4>
-              <HelpCircle size={16} />
-              Information gaps
-            </h4>
-            <ul>
-              {rotation.infoGaps.map((gap) => (
-                <li key={gap}>
-                  <HelpCircle size={15} />
-                  {gap}
-                </li>
-              ))}
-            </ul>
+            {unique(rotation.risks).length > 0 && (
+              <div>
+                <h4>Check first</h4>
+                <ul>
+                  {unique(rotation.risks).map((risk, index) => (
+                    <li key={index}>
+                      <AlertTriangle size={14} />
+                      {risk}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-        )}
-        </div>
-      </>}
 
-      {expanded && <div className="confidence">
-        <ShieldCheck size={16} />
-
-        <span>
-          Recommendation confidence:{" "}
-          <strong>
-            {rotation.confidence}
-          </strong>
-        </span>
-      </div>}
-
-      {expanded && rotation.evidence && rotation.evidence.length > 0 && (
-        <div className="rotation-source rotation-evidence">
-          <TrendingUp size={15} />
-          <div>
-            <strong>Evidence from NASA data for this field</strong>
-            <ul>
-              {rotation.evidence.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
+          {unique(rotation.evidence).length > 0 && (
+            <details className="rotation-evidence">
+              <summary>Field data behind this score · confidence {rotation.confidence}</summary>
+              <ul>
+                {unique(rotation.evidence).map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </>
       )}
 
-      {collapsible && expanded && (
+      {collapsible && (
         <button
           type="button"
-          className="see-more-button see-less-button"
-          onClick={() => setExpanded(false)}
-          aria-expanded={true}
+          className="rotation-toggle"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
         >
-          Show less
-          <span>↑</span>
+          {expanded ? "Show less" : "Show details"}
         </button>
       )}
     </article>
   );
 }
-const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
 function RotationCalendar({ years }: { years: RotationYear[] }) {
   return (
@@ -274,13 +156,17 @@ function RotationCalendar({ years }: { years: RotationYear[] }) {
           <span>{year.label}</span>
           {MONTH_LETTERS.map((_, month) => {
             const segment = year.segments.find((seg) => seg.months.includes(month));
+            // Label each crop once, in the first month of its run, stretched across the months it occupies.
+            const startsHere = segment && (month === 0 || !segment.months.includes(month - 1));
+            let run = 0;
+            while (segment && month + run < 12 && segment.months.includes(month + run)) run += 1;
             return (
-              <i
-                key={month}
-                className={segment ? `cell ${segment.role}` : "cell bare"}
-                title={segment ? `${segment.name}` : "Bare soil"}
-              >
-                {segment && segment.months[0] === month ? segment.emoji : ""}
+              <i key={month} className={segment ? `cell ${segment.role}` : "cell bare"} title={segment ? segment.name : "Bare soil"}>
+                {startsHere && (
+                  <span className="cell-label" style={{ "--run": run } as CSSProperties}>
+                    {segment.name}
+                  </span>
+                )}
               </i>
             );
           })}
