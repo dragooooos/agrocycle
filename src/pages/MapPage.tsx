@@ -1,3 +1,4 @@
+import "./MapPage.css";
 import {
   ArrowRight,
   Check,

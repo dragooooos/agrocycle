@@ -1,0 +1,217 @@
+/* Home (landing) page styles — Home.tsx, EarthScene.tsx */
+
+/* HERO */
+
+.hero-description {
+  max-width: 670px;
+
+  margin-bottom: 24px;
+
+  color: var(--text-soft);
+
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 700px) {
+  .hero-description {
+    font-size: 15px;
+  }
+}
+
+/* IMMERSIVE LANDING */
+
+.earth-scene { width: 100%; height: 100%; position: relative; z-index: 2; }
+
+.earth-scene canvas { width: 100% !important; height: 100% !important; display: block; }
+
+.scene-glow {
+  position: absolute;
+  width: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(70, 197, 133, .22), rgba(70,197,133,0) 67%);
+  filter: blur(12px);
+  z-index: 1;
+}
+
+/* THREE.JS FALLBACK */
+
+.earth-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  color: var(--green-dark);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="dark"] .hero-description {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .satellite-fallback {
+  color: #dff2e6;
+}
+
+html[data-theme="dark"] .satellite-fallback-body {
+  background: #123522;
+  color: #f3faf5;
+  box-shadow: 0 0 50px rgba(90, 220, 143, 0.22);
+}
+
+html[data-theme="dark"] .satellite-fallback-body span,
+html[data-theme="dark"] .satellite-fallback-body i,
+html[data-theme="dark"] .satellite-fallback-body b {
+  background: #234f72;
+}
+
+/* Dark-mode readability: replace pale gray fallback surfaces with AgroCycle green. */
+
+html[data-theme="dark"] .satellite-fallback {
+  color: #f3faf5 !important;
+}
+
+html[data-theme="dark"] .satellite-fallback-body {
+  background: #123522 !important;
+  color: #f3faf5 !important;
+  border: 1px solid rgba(181, 224, 199, 0.16);
+}
+
+html[data-theme="dark"] .satellite-fallback strong,
+html[data-theme="dark"] .satellite-fallback small {
+  color: #f3faf5 !important;
+}
+
+/* LANDING STAGE: huge Earth rising from the bottom, centered copy and action */
+
+.landing-theme-toggle {
+  position: fixed;
+  top: 18px;
+  right: clamp(18px, 3vw, 36px);
+  z-index: 20;
+}
+
+.landing-stage {
+  position: relative;
+  height: 100svh;
+  min-height: 560px;
+  display: grid;
+  place-items: center;
+  padding: 0 clamp(24px, 5vw, 76px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The Earth is centered on the bottom edge, so only its upper half shows. */
+
+.landing-stage-earth {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: max(240vh, 150vw);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(4px) saturate(1.1);
+}
+
+.landing-stage-earth .scene-glow { width: 75%; }
+
+.landing-stage-earth .earth-scene { width: 100%; height: 100%; }
+
+/* Soft dark halo behind the copy so white text stays readable. */
+
+.landing-stage-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 48% 40% at 50% 52%,
+    rgba(4, 18, 12, .42) 0%,
+    rgba(4, 18, 12, .18) 55%,
+    transparent 100%);
+}
+
+.landing-stage-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 1240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.landing-stage-copy h1 {
+  margin: 0 0 24px;
+  color: #fff;
+  font-size: clamp(38px, 4.6vw, 74px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, .35);
+}
+
+.landing-stage-copy .hero-description {
+  max-width: 600px;
+  margin: 0 0 34px;
+  font-size: clamp(15px, 1.3vw, 19px);
+  line-height: 1.6;
+  color: rgba(255, 0, 0, 0.8) !important;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55), 0 2px 22px rgba(0, 0, 0, .5);
+}
+
+.landing-stage-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-stage-action .primary-button {
+  font-size: 16px;
+  padding: 16px 28px;
+}
+
+.landing-stage-copy h1 span {
+  display: block;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .landing-stage-copy h1 span { display: inline; white-space: normal; }
+}
+@media (max-width: 600px) {
+  .landing-stage-copy h1 { font-size: 40px; }
+
+  .landing-stage-earth { width: max(200vh, 220vw); filter: blur(3px); }
+}
+@media (max-width: 760px) {
+  .landing-theme-toggle { top: 10px; right: 12px; z-index: 1200; }
+}
+/* Landing description stays white in both themes (beats the dark-theme muted rule) */
+
+html .landing-stage .landing-stage-copy .hero-description,
+html[data-theme="dark"] .landing-stage .landing-stage-copy .hero-description {
+  color: #ffffff !important;
+}
+
+@media (max-width: 760px) {
+  /* Home hero fills the space under the navbar */
+
+  .app-content .landing-stage {
+    height: calc(100svh - 60px);
+    min-height: 520px;
+  }
+
+}
