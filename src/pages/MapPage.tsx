@@ -1,16 +1,32 @@
+import "./MapPage.css";
 import {
   ArrowRight,
   Check,
+  CloudRain,
+  CloudRainWind,
+  CloudSun,
+  Droplet,
   Droplets,
   Flame,
+  Haze,
+  Info,
+  Leaf,
+  MapPin,
   Mountain,
+  MousePointerClick,
+  Search,
+  Snowflake,
   Sprout,
+  Square,
+  Thermometer,
+  ThermometerSun,
+  TrendingDown,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header";
 import MapView from "../components/MapView";
-import type { AreaUnit, FieldSelection, PriorityId } from "../types";
+import type { AreaUnit, FieldSelection, IndicatorId, PriorityId } from "../types";
 
 const priorityOptions: {
   id: PriorityId;
@@ -21,6 +37,22 @@ const priorityOptions: {
   { id: "soil", label: "Build soil health", icon: Sprout },
   { id: "heat", label: "Handle heat", icon: Flame },
   { id: "erosion", label: "Protect soil", icon: Mountain },
+];
+
+const indicatorOptions: {
+  id: IndicatorId;
+  label: string;
+  icon: typeof Droplets;
+}[] = [
+  { id: "temperature", label: "Temperature", icon: Thermometer },
+  { id: "heatStress", label: "Heat stress", icon: ThermometerSun },
+  { id: "rainfall", label: "Rainfall", icon: CloudRain },
+  { id: "soilMoisture", label: "Soil moisture", icon: Droplet },
+  { id: "evaporation", label: "Evaporation", icon: Haze },
+  { id: "frostRisk", label: "Frost risk", icon: Snowflake },
+  { id: "extremePrecipitation", label: "Extreme precipitation", icon: CloudRainWind },
+  { id: "vegetationStress", label: "Vegetation stress", icon: Leaf },
+  { id: "waterTrends", label: "Long-term water trends", icon: TrendingDown },
 ];
 
 const unitLabels: Record<AreaUnit, string> = {
@@ -39,6 +71,8 @@ function convertArea(squareMeters: number, unit: AreaUnit) {
   return squareMeters;
 }
 
+type PanelId = "location" | "info" | "priorities" | "indicators";
+
 export default function MapPage() {
   const navigate = useNavigate();
   const [field, setField] = useState<FieldSelection | null>(null);
@@ -47,6 +81,35 @@ export default function MapPage() {
     "water",
     "soil",
   ]);
+
+  const [locationSlot, setLocationSlot] = useState<HTMLDivElement | null>(null);
+  const [openPanel, setOpenPanel] = useState<PanelId | null>("location");
+
+  const togglePanel = (panel: PanelId) => {
+    setOpenPanel((current) => (current === panel ? null : panel));
+  };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenPanel(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const [indicators, setIndicators] = useState<IndicatorId[]>([
+    "temperature",
+    "rainfall",
+    "soilMoisture",
+  ]);
+
+  const toggleIndicator = (id: IndicatorId) => {
+    setIndicators((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id],
+    );
+  };
 
   const togglePriority = (id: PriorityId) => {
     setPriorities((current) =>
@@ -71,134 +134,295 @@ export default function MapPage() {
       JSON.stringify({ ...field, areaUnit: unit }),
     );
     sessionStorage.setItem("farmrotate:priorities", JSON.stringify(priorities));
+    sessionStorage.setItem("farmrotate:indicators", JSON.stringify(indicators));
     sessionStorage.setItem("farmrotate:note", "");
     navigate("/analysis");
   };
 
   return (
     <div className="map-page-shell">
-      <Header selected />
-
       <main className="map-page">
-        <MapView onFieldSelected={setField} />
+        <MapView onFieldSelected={setField} coordinatesContainer={locationSlot} />
 
-        <aside className="map-control-panel">
-          <div className="map-panel-header">
-            <div>
-              <span className="eyebrow">FIELD EXPLORER</span>
-              <h1>Select your location</h1>
-            </div>
-            <span className="map-live-badge">LIVE MAP</span>
-          </div>
-
-          <div className="selection-mode-info">
-            <div className="mode-item">
-              <span className="mode-dot point" />
-              <div>
-                <strong>Point analysis</strong>
-                <p>Click one location to inspect local conditions. No field boundary required.</p>
-              </div>
-            </div>
-            <div className="mode-item">
-              <span className="mode-dot area" />
-              <div>
-                <strong>Field area</strong>
-                <p>Draw a polygon or rectangle to calculate the selected area.</p>
-              </div>
-            </div>
-          </div>
-
-          {field ? (
-            <div className="selection-card">
-              <div className="selection-card-top">
-                <span className="selection-type">
-                  {field.selectionType === "point" ? "POINT SELECTED" : "FIELD SELECTED"}
-                </span>
-                <Check size={16} />
-              </div>
-
-              <div className="coordinate-readout">
+        <div className="map-island-dock">
+          {openPanel === "location" && (
+            <section
+              id="island-panel-location"
+              className="island-panel"
+              role="dialog"
+              aria-label="Find a location"
+            >
+              <div className="island-panel-header">
                 <div>
-                  <span>Latitude</span>
-                  <strong>{field.latitude.toFixed(6)}°</strong>
+                  <span className="eyebrow">NAVIGATE</span>
                 </div>
-                <div>
-                  <span>Longitude</span>
-                  <strong>{field.longitude.toFixed(6)}°</strong>
-                </div>
+                <button
+                  className="island-close"
+                  onClick={() => setOpenPanel(null)}
+                  aria-label="Close panel"
+                >
+                  <X size={16} />
+                </button>
               </div>
-
-              {field.selectionType === "area" && (
-                <div className="area-control">
-                  <div>
-                    <span>Measured area</span>
-                    <strong>{displayArea}</strong>
-                  </div>
-                  <label>
-                    Unit
-                    <select value={unit} onChange={(event) => setUnit(event.target.value as AreaUnit)}>
-                      <option value="ha">Hectares (ha)</option>
-                      <option value="m2">Square metres (m²)</option>
-                      <option value="km2">Square kilometres (km²)</option>
-                      <option value="acres">Acres</option>
-                      <option value="ft2">Square feet (ft²)</option>
-                    </select>
-                  </label>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="empty-selection">
-              <span>1</span>
-              <div>
-                <strong>Choose a point or draw a field</strong>
-                <p>Use the map controls on the left, or enter coordinates above.</p>
-              </div>
-            </div>
+              <div ref={setLocationSlot} />
+            </section>
           )}
 
-          <div className="priority-mini">
-            <div className="priority-mini-heading">
-              <div>
-                <span className="eyebrow">FARMER PRIORITIES</span>
-                <h2>What matters most?</h2>
+          {openPanel === "info" && (
+            <section
+              id="island-panel-info"
+              className="island-panel"
+              role="dialog"
+              aria-label="Location and indications"
+            >
+              <div className="island-panel-header">
+                <div>
+                  <span className="eyebrow">FIELD EXPLORER</span>
+                </div>
+                <button
+                  className="island-close"
+                  onClick={() => setOpenPanel(null)}
+                  aria-label="Close panel"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <span>{priorities.length} selected</span>
+
+              <div className="selection-mode-info">
+                <div className="mode-item">
+                  <div>
+                    <strong>Point analysis</strong>
+                    <p>Click one location to inspect local conditions. No field boundary required.</p>
+                  </div>
+                </div>
+                <div className="mode-item">
+                  <div>
+                    <strong>Field area</strong>
+                    <p>Draw a polygon or rectangle to calculate the selected area.</p>
+                  </div>
+                </div>
+              </div>
+
+              {field ? (
+                <div className="selection-card">
+                  <div className="selection-card-top">
+                    <span className="selection-type">
+                      {field.selectionType === "point" ? "POINT SELECTED" : "FIELD SELECTED"}
+                    </span>
+                    <Check size={16} />
+                  </div>
+
+                  <div className="coordinate-readout">
+                    <div>
+                      <span>Latitude</span>
+                      <strong>{field.latitude.toFixed(6)}°</strong>
+                    </div>
+                    <div>
+                      <span>Longitude</span>
+                      <strong>{field.longitude.toFixed(6)}°</strong>
+                    </div>
+                  </div>
+
+                  {field.selectionType === "area" && (
+                    <div className="area-control">
+                      <div>
+                        <span>Measured area</span>
+                        <strong>{displayArea}</strong>
+                      </div>
+                      <label>
+                        Unit
+                        <select value={unit} onChange={(event) => setUnit(event.target.value as AreaUnit)}>
+                          <option value="ha">Hectares (ha)</option>
+                          <option value="m2">Square metres (m²)</option>
+                          <option value="km2">Square kilometres (km²)</option>
+                          <option value="acres">Acres</option>
+                          <option value="ft2">Square feet (ft²)</option>
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="empty-selection">
+                  <div>
+                    <strong>Choose a point or draw a field</strong>
+                    <p>Use the map tools on the left, or search coordinates with the 🔍 button.</p>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {openPanel === "priorities" && (
+            <section
+              id="island-panel-priorities"
+              className="island-panel"
+              role="dialog"
+              aria-label="Farmer priorities"
+            >
+              <div className="island-panel-header">
+                <div>
+                  <span className="eyebrow">FARMER PRIORITIES</span>
+                </div>
+                <button
+                  className="island-close"
+                  onClick={() => setOpenPanel(null)}
+                  aria-label="Close panel"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="priority-mini-grid">
+                {priorityOptions.map(({ id, label, icon: Icon }) => {
+                  const active = priorities.includes(id);
+                  return (
+                    <button
+                      key={id}
+                      className={active ? "mini-priority active" : "mini-priority"}
+                      onClick={() => togglePriority(id)}
+                      aria-pressed={active}
+                    >
+                      <Icon size={16} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {openPanel === "indicators" && (
+            <section
+              id="island-panel-indicators"
+              className="island-panel"
+              role="dialog"
+              aria-label="Climate indicators"
+            >
+              <div className="island-panel-header">
+                <div>
+                  <span className="eyebrow">CLIMATE INDICATORS</span>
+                </div>
+                <button
+                  className="island-close"
+                  onClick={() => setOpenPanel(null)}
+                  aria-label="Close panel"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="indicator-actions">
+                <button onClick={() => setIndicators(indicatorOptions.map((option) => option.id))}>
+                  Select all
+                </button>
+                <button onClick={() => setIndicators([])}>Clear</button>
+              </div>
+
+              <div className="priority-mini-grid">
+                {indicatorOptions.map(({ id, label, icon: Icon }) => {
+                  const active = indicators.includes(id);
+                  return (
+                    <button
+                      key={id}
+                      className={active ? "mini-priority active" : "mini-priority"}
+                      onClick={() => toggleIndicator(id)}
+                      aria-pressed={active}
+                    >
+                      <Icon size={16} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          <nav className="map-island" aria-label="Map controls">
+            <button
+              className={openPanel === "location" ? "island-icon-button active" : "island-icon-button"}
+              onClick={() => togglePanel("location")}
+              aria-expanded={openPanel === "location"}
+              aria-controls="island-panel-location"
+              aria-label="Find a location"
+              title="Find a location"
+            >
+              <Search size={19} />
+            </button>
+
+            <button
+              className={openPanel === "info" ? "island-icon-button active" : "island-icon-button"}
+              onClick={() => togglePanel("info")}
+              aria-expanded={openPanel === "info"}
+              aria-controls="island-panel-info"
+              aria-label="Location and indications"
+              title="Location & indications"
+            >
+              <Info size={19} />
+            </button>
+
+            <button
+              className={openPanel === "priorities" ? "island-icon-button active" : "island-icon-button"}
+              onClick={() => togglePanel("priorities")}
+              aria-expanded={openPanel === "priorities"}
+              aria-controls="island-panel-priorities"
+              aria-label="Farmer priorities"
+              title="Farmer priorities"
+            >
+              <Sprout size={19} />
+              {priorities.length > 0 && (
+                <span className="island-badge">{priorities.length}</span>
+              )}
+            </button>
+
+            <button
+              className={openPanel === "indicators" ? "island-icon-button active" : "island-icon-button"}
+              onClick={() => togglePanel("indicators")}
+              aria-expanded={openPanel === "indicators"}
+              aria-controls="island-panel-indicators"
+              aria-label="Climate indicators"
+              title="Climate indicators"
+            >
+              <CloudSun size={19} />
+              {indicators.length > 0 && (
+                <span className="island-badge">{indicators.length}</span>
+              )}
+            </button>
+
+            <span className="island-divider" aria-hidden="true" />
+
+            <div
+              className={field ? "island-status ready" : "island-status"}
+              role="status"
+              title={
+                field
+                  ? field.selectionType === "area"
+                    ? `Field selected · ${displayArea}`
+                    : `Point selected · ${field.latitude.toFixed(4)}°, ${field.longitude.toFixed(4)}°`
+                  : "Nothing selected yet: click the map or draw a field"
+              }
+            >
+              {field ? (
+                field.selectionType === "area" ? <Square size={17} /> : <MapPin size={17} />
+              ) : (
+                <MousePointerClick size={17} />
+              )}
+              <span className="visually-hidden">
+                {field ? "Selection ready" : "Nothing selected yet"}
+              </span>
             </div>
 
-            <div className="priority-mini-grid">
-              {priorityOptions.map(({ id, label, icon: Icon }) => {
-                const active = priorities.includes(id);
-                return (
-                  <button
-                    key={id}
-                    className={active ? "mini-priority active" : "mini-priority"}
-                    onClick={() => togglePriority(id)}
-                    aria-pressed={active}
-                  >
-                    <Icon size={16} />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            className="primary-button map-analyze-button"
-            disabled={!field}
-            onClick={analyze}
-          >
-            Continue to analysis
-            <ArrowRight size={18} />
-          </button>
-
-          <p className="map-disclaimer">
-            Satellite imagery is a visual basemap. It is not itself a field measurement.
-            NASA indicators shown in the next step are decision-support signals and should
-            be validated with local observations.
-          </p>
-        </aside>
+            <button
+              className="island-go-button"
+              disabled={!field}
+              onClick={analyze}
+              aria-label="Continue to analysis"
+              title={field ? "Continue to analysis" : "Select a point or field first"}
+            >
+              <ArrowRight size={19} />
+            </button>
+          </nav>
+        </div>
       </main>
     </div>
   );

@@ -1,3 +1,4 @@
+import "./Analysis.css";
 import {
   AlertTriangle,
   Droplets,

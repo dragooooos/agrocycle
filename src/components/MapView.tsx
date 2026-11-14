@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   MapContainer,
   TileLayer,
@@ -18,6 +19,12 @@ import CoordinatesBox from "./CoordinatesBox";
 interface MapViewProps {
   onFieldSelected: (selection: FieldSelection) => void;
   initialLocation?: { latitude: number; longitude: number } | null;
+  /**
+   * When provided, the "Find a location" box is rendered inside this element
+   * (e.g. a panel of the floating island) instead of floating over the map.
+   * Pass null while that panel is closed.
+   */
+  coordinatesContainer?: HTMLElement | null;
 }
 
 function MapResizeFix() {
@@ -194,6 +201,7 @@ function DrawingTools({
 export default function MapView({
   onFieldSelected,
   initialLocation = null,
+  coordinatesContainer,
 }: MapViewProps) {
   const defaultLocation = initialLocation ?? {
     latitude: 45.9432,
@@ -275,12 +283,23 @@ export default function MapView({
         <LocationMarker location={clickedLocation} />
       </MapContainer>
 
-      <div className="map-top-card">
-        <CoordinatesBox
-          onGoTo={handleGoTo}
-          onUseMyLocation={handleUseMyLocation}
-        />
-      </div>
+      {coordinatesContainer === undefined ? (
+        <div className="map-top-card">
+          <CoordinatesBox
+            onGoTo={handleGoTo}
+            onUseMyLocation={handleUseMyLocation}
+          />
+        </div>
+      ) : (
+        coordinatesContainer &&
+        createPortal(
+          <CoordinatesBox
+            onGoTo={handleGoTo}
+            onUseMyLocation={handleUseMyLocation}
+          />,
+          coordinatesContainer,
+        )
+      )}
 
       <div className="map-overlay">
         <div className="map-title">Field Explorer</div>
