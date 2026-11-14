@@ -332,18 +332,41 @@ export async function fetchTerrain(
 /* ------------------------------------------------------------------ */
 
 interface NominatimResponse {
-  address?: { country?: string; country_code?: string };
+  address?: {
+    country?: string;
+    country_code?: string;
+    state?: string;
+    county?: string;
+    "ISO3166-2-lvl4"?: string;
+  };
 }
 
-/** Reverse-geocodes the field to a country via OpenStreetMap Nominatim. */
-export async function fetchCountry(latitude: number, longitude: number) {
+export interface PlaceResult {
+  code: string;
+  name: string;
+  state?: string;
+  /** Two-letter state/province code where available, e.g. "IA". */
+  stateCode?: string;
+  county?: string;
+}
+
+/** Reverse-geocodes the field to a country (and county/state) via OpenStreetMap Nominatim. */
+export async function fetchCountry(latitude: number, longitude: number): Promise<PlaceResult> {
   const json = await fetchJson<NominatimResponse>(
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=3&accept-language=en&lat=${latitude.toFixed(4)}&lon=${longitude.toFixed(4)}`,
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language=en&lat=${latitude.toFixed(4)}&lon=${longitude.toFixed(4)}`,
     12000,
   );
-  const code = json.address?.country_code;
+  const address = json.address ?? {};
+  const code = address.country_code;
   if (!code) throw new Error("No country at this location");
-  return { code: code.toLowerCase(), name: json.address?.country ?? code.toUpperCase() };
+  const iso = address["ISO3166-2-lvl4"];
+  return {
+    code: code.toLowerCase(),
+    name: address.country ?? code.toUpperCase(),
+    state: address.state,
+    stateCode: iso?.includes("-") ? iso.split("-")[1] : undefined,
+    county: address.county,
+  };
 }
 
 /* ------------------------------------------------------------------ */

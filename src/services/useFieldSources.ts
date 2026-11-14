@@ -2,7 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import type { SourceId } from "../types";
 import { getSourceState, resetSource, startSource, type SourceState } from "./sourceStore";
 
-const ALL: SourceId[] = ["power", "country", "soil", "ssurgo", "terrain", "ndvi"];
+const ALL: SourceId[] = [
+  "power",
+  "country",
+  "soil",
+  "ssurgo",
+  "terrain",
+  "ndvi",
+  "era5",
+  "sentinel2",
+  "cmip6",
+  "groundwater",
+  "nass",
+  "openet",
+];
 
 const snapshotOf = (lat: number, lon: number) =>
   Object.fromEntries(ALL.map((id) => [id, getSourceState(id, lat, lon)])) as Record<SourceId, SourceState>;

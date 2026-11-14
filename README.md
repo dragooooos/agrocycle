@@ -40,3 +40,27 @@ The globe also includes a procedural fallback so the hero remains visible if rem
 ## 3D Hero
 
 The landing page uses NASA's Landsat 8 GLB as the primary interactive 3D asset. NASA lists the model in its 3D Resources library and credits NASA/Christopher R. Meaney. The browser loads the GLB from the official NASA asset host; a procedural fallback is shown if the remote asset is unavailable.
+
+## Data sources
+
+Live, keyless (called from the browser):
+
+| Source | What AgroCycle uses it for |
+|---|---|
+| NASA POWER | Daily temperature, rain, surface and root-zone soil wetness since 2015 |
+| MODIS NDVI (NASA ORNL DAAC) | Vegetation greenness vs earlier years |
+| SoilGrids / USDA SSURGO (US) | Soil texture, organic matter, pH, drainage |
+| Copernicus GLO-90 DEM (Open-Meteo) | Elevation and slope |
+| Copernicus ERA5-Land (CDS, via Open-Meteo) | Independent soil-moisture check (m³/m³) |
+| CMIP6 HighResMIP (via Open-Meteo) | Climate projection for 2041–2050 vs 1995–2014 |
+| Copernicus Data Space STAC | Recent cloud-free Sentinel-2 images of the field |
+| USGS Water Data (US) | Groundwater-level trend at the nearest well |
+
+Optional, via the local proxy in `vite.config.ts` (these APIs need a key and block browser calls):
+
+1. Copy `.env.example` to `.env`.
+2. Add `NASS_API_KEY` (USDA NASS Quick Stats, free) and/or `OPENET_API_KEY` (OpenET, free).
+3. Restart `npm run dev`.
+
+The keys stay on the dev server. Without them the app works normally and marks these sources as "Not enabled".
+The proxy only runs with `npm run dev` / `npm run preview`; a static deployment needs an equivalent serverless function.

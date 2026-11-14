@@ -1,4 +1,5 @@
 import type {
+  AnalysisExtras,
   Confidence,
   FieldAnalysis,
   MonthlyProfile,
@@ -143,7 +144,8 @@ export interface AnalysisInputs {
   ssurgo?: SsurgoResult | null;
   ndvi: NdviResult | null;
   terrain: TerrainResult | null;
-  country: { code: string; name: string } | null;
+  country: FieldAnalysis["country"];
+  extras?: Partial<AnalysisExtras>;
   sources: SourceStatus[];
 }
 
@@ -305,7 +307,9 @@ export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
     `Soil wetness comes from NASA POWER's ~50 km grid (SMAP L4 itself is ${SMAP_FACTS.l4GridKm} km). It describes the surrounding landscape, not your exact field.`,
   ];
   let points = 3;
-  const missing = input.sources.filter((source) => !source.ok && !source.pending);
+  const missing = input.sources.filter(
+    (source) => !source.ok && !source.pending && !source.notApplicable && source.core !== false,
+  );
   if (missing.length) {
     points -= missing.length >= 2 ? 2 : 1;
     caveats.push(`Not available right now: ${missing.map((source) => source.name).join(", ")}.`);
@@ -325,6 +329,12 @@ export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
   }
   if (ssurgo?.drainage && /poorly/i.test(ssurgo.drainage)) {
     caveats.push(`USDA soil survey: "${ssurgo.drainage}". Waterlogging limits crops that need well-drained soil.`);
+  }
+  const era5 = input.extras?.era5 ?? null;
+  if (era5?.rootZoneAnomaly != null && rootAnomaly !== null && Math.abs(era5.rootZoneAnomaly - rootAnomaly) > 15) {
+    caveats.push(
+      `The two soil-moisture sources disagree: NASA POWER ${rootAnomaly > 0 ? "+" : ""}${rootAnomaly}% vs Copernicus ERA5-Land ${era5.rootZoneAnomaly > 0 ? "+" : ""}${era5.rootZoneAnomaly}% compared with earlier years. Check the soil by hand.`,
+    );
   }
   if ((frost.current ?? 0) > 60) {
     caveats.push(
@@ -400,6 +410,14 @@ export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
     trends,
     odds,
     country: input.country,
+    extras: {
+      era5: input.extras?.era5 ?? null,
+      projection: input.extras?.projection ?? null,
+      sentinel2: input.extras?.sentinel2 ?? null,
+      groundwater: input.extras?.groundwater ?? null,
+      usdaYields: input.extras?.usdaYields ?? null,
+      openet: input.extras?.openet ?? null,
+    },
     resilienceScore: Math.max(0, Math.min(100, resilienceScore)),
     confidence,
     caveats,

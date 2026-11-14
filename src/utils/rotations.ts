@@ -156,10 +156,15 @@ function evaluate(
     (allCrops.some((c) => c.biofumigant) ? 8 : 0) +
     (slots.length >= 3 ? 7 : 0);
 
-  const marketOf = (crop: CropFit["crop"]) =>
-    constraints.livestock && (crop.role === "forage" || ["oats", "sorghum", "maize", "barley"].includes(crop.id))
-      ? Math.max(85, marketScore(crop.id, country, a.latitude, a.longitude))
-      : marketScore(crop.id, country, a.latitude, a.longitude);
+  // USDA county yield statistics (US only) prove a crop is actually grown and sold nearby.
+  const countyCrops = new Set(a.extras?.usdaYields?.crops.map((c) => c.cropId) ?? []);
+  const marketOf = (crop: CropFit["crop"]) => {
+    let score = marketScore(crop.id, country, a.latitude, a.longitude);
+    if (countyCrops.has(crop.id)) score = Math.max(score, 92);
+    if (constraints.livestock && (crop.role === "forage" || ["oats", "sorghum", "maize", "barley"].includes(crop.id)))
+      score = Math.max(85, score);
+    return score;
+  };
   const market = avg([...mains.map((m) => marketOf(m.crop)), ...cashSeconds.map((s) => marketOf(s.fit.crop) * 0.95)]);
 
   const metrics = {
@@ -275,7 +280,9 @@ function toRotation(
 
   gaps.push("No local yield records: fit is based on climate, soil and crop requirements only.");
   gaps.push(
-    countryList
+    a.extras?.usdaYields
+      ? `Market fit uses USDA county yield records for ${a.extras.usdaYields.county}, not prices or contracts.`
+      : countryList
       ? `Market fit uses how common each crop is in ${a.country?.name ?? "this country"}, not prices or contracts.`
       : region.length
         ? "Country not identified: market fit uses regional crop patterns."

@@ -10,10 +10,10 @@ export interface LayerOption {
 
 /** What the farmer can choose to see, and which data sources each choice needs. */
 export const LAYERS: LayerOption[] = [
-  { id: "moisture", label: "Soil moisture", emoji: "💧", description: "Surface and root-zone wetness (NASA POWER, SMAP layers)", sources: ["power"] },
+  { id: "moisture", label: "Soil moisture", emoji: "💧", description: "Surface and root-zone wetness (NASA POWER, SMAP layers; ERA5-Land check; US groundwater)", sources: ["power", "era5", "groundwater"] },
   { id: "temperature", label: "Temperature, heat & frost", emoji: "🌡️", description: "Mean temperature, hot days and frost days (NASA POWER)", sources: ["power"] },
-  { id: "rain", label: "Rainfall & water balance", emoji: "🌧️", description: "Rain, evaporation demand and heavy-rain days (NASA POWER)", sources: ["power"] },
-  { id: "vegetation", label: "Vegetation health", emoji: "🌿", description: "Crop greenness from MODIS NDVI (slow service, ~1 min)", sources: ["ndvi"] },
+  { id: "rain", label: "Rainfall & water balance", emoji: "🌧️", description: "Rain, evaporation demand and heavy-rain days (NASA POWER; OpenET in the US)", sources: ["power", "openet"] },
+  { id: "vegetation", label: "Vegetation health", emoji: "🌿", description: "Crop greenness from MODIS NDVI (slow service, ~1 min) and recent Sentinel-2 passes", sources: ["ndvi", "sentinel2"] },
   { id: "terrain", label: "Slope & erosion", emoji: "⛰️", description: "Elevation and slope from a 90 m elevation model", sources: ["terrain"] },
   { id: "soil", label: "Soil properties", emoji: "🟫", description: "Texture, organic matter and pH (SoilGrids; USDA SSURGO in the US)", sources: ["soil", "ssurgo"] },
 ];

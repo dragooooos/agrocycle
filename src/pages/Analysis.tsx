@@ -32,7 +32,15 @@ import { LAYERS, readLayers, saveLayers, sourcesFor } from "../data/layers";
 import { marketScore } from "../data/markets";
 import { useFieldSources } from "../services/useFieldSources";
 import { SOURCE_INFO, sourceStatuses, type SourceState } from "../services/sourceStore";
-import type { NdviResult, PowerDaily, SoilProfile, SsurgoResult, TerrainResult } from "../services/nasaData";
+import type { NdviResult, PlaceResult, PowerDaily, SoilProfile, SsurgoResult, TerrainResult } from "../services/nasaData";
+import type {
+  Era5Result,
+  GroundwaterResult,
+  NassResult,
+  OpenEtResult,
+  ProjectionResult,
+  Sentinel2Result,
+} from "../services/extraSources";
 import { recommendRotations } from "../utils/rotations";
 import { buildFieldAnalysis, THRESHOLDS } from "../utils/fieldAnalysis";
 import { buildClimate, monthRange, type Scenario } from "../utils/cropSuitability";
@@ -66,6 +74,17 @@ const readJson = <T,>(key: string, fallback: T): T => {
   }
 };
 
+const OTHER_RESOURCES: { name: string; url: string; note: string }[] = [
+  { name: "Copernicus Climate Data Store", url: "https://cds.climate.copernicus.eu/datasets", note: "Connected through Open-Meteo: ERA5-Land soil moisture and CMIP6 projections. The CDS API itself queues jobs and needs a key, so it cannot be called from a browser." },
+  { name: "Copernicus Data Space", url: "https://dataspace.copernicus.eu/", note: "Connected: the STAC catalogue lists recent cloud-free Sentinel-2 images. Pixel values (e.g. 10 m NDVI) need an account and OAuth, which requires a backend." },
+  { name: "USGS Water Data", url: "https://waterdata.usgs.gov/", note: "Connected (US): groundwater-level trends from the nearest well with a multi-year record." },
+  { name: "USDA NASS Quick Stats", url: "https://quickstats.nass.usda.gov/", note: "Connected through the local proxy when NASS_API_KEY is set in .env: county crop yields. The API blocks browser calls." },
+  { name: "OpenET", url: "https://etdata.org/api/", note: "Connected through the local proxy when OPENET_API_KEY is set in .env: field-scale actual evapotranspiration (US)." },
+  { name: "USDA AMS Market News", url: "https://www.ams.usda.gov/market-news", note: "Not connected: prices come as individual reports (by commodity and market) behind an API key; mapping them to every crop and region needs a backend job." },
+  { name: "LANDFIRE", url: "https://www.landfire.gov/", note: "Not connected: US vegetation, fuel and topography layers delivered through asynchronous download jobs; aimed at wildfire, little added value for crop rotation." },
+  { name: "GEDI", url: "https://gedi.umd.edu/data-collection-started/", note: "Not connected: lidar forest structure and biomass, sampled along tracks; it says little about cropland and needs an Earthdata login." },
+];
+
 const DOC_ORDER: SmapDocKind[] = [
   "User guide",
   "Product specification",
@@ -95,6 +114,7 @@ function layerReadiness(layer: LayerId, snapshot: Record<SourceId, SourceState>)
 /* ------------------------------------------------------------------ */
 
 interface Finding {
+  id: string;
   layer: LayerId;
   tone: "good" | "watch" | "bad" | "loading" | "missing";
   emoji: string;
@@ -102,17 +122,22 @@ interface Finding {
   text: string;
 }
 
-function buildFindings(a: FieldAnalysis, layers: LayerId[], ready: (l: LayerId) => Readiness): Finding[] {
-  const findings: Finding[] = [];
-  const pending = (layer: LayerId, emoji: string, title: string): Finding =>
-    ready(layer) === "loading"
+function buildFindings(
+  a: FieldAnalysis,
+  layers: LayerId[],
+  sourceLoading: (id: SourceId) => boolean,
+): Omit<Finding, "id">[] {
+  const findings: Omit<Finding, "id">[] = [];
+  const pending = (layer: LayerId, emoji: string, title: string, source: SourceId): Omit<Finding, "id"> =>
+    sourceLoading(source)
       ? { layer, tone: "loading", emoji, title, text: "Still loading from the data service…" }
       : { layer, tone: "missing", emoji, title, text: "The data service did not answer. You can retry below." };
+  const x = a.extras;
 
   if (layers.includes("moisture")) {
     const w = a.water.rootZoneWetness;
     const anomaly = a.water.rootZoneAnomaly;
-    if (w === null) findings.push(pending("moisture", "💧", "Soil moisture"));
+    if (w === null) findings.push(pending("moisture", "💧", "Soil moisture", "power"));
     else {
       const tone = anomaly !== null && anomaly <= -10 ? "bad" : anomaly !== null && anomaly <= -4 ? "watch" : "good";
       const title =
@@ -122,7 +147,23 @@ function buildFindings(a: FieldAnalysis, layers: LayerId[], ready: (l: LayerId) 
         tone,
         emoji: "💧",
         title,
-        text: `The root zone is ${pct(w)} full of water${anomaly !== null ? ` (${signed(anomaly)}% compared with earlier years)` : ""}.`,
+        text: `The root zone is ${pct(w)} full of water${anomaly !== null ? ` (${signed(anomaly)}% compared with earlier years)` : ""}.${
+          x.era5?.rootZone != null
+            ? ` Copernicus ERA5-Land: ${x.era5.rootZone} m³/m³${x.era5.rootZoneAnomaly !== null ? ` (${signed(x.era5.rootZoneAnomaly)}%)` : ""}.`
+            : ""
+        }`,
+      });
+    }
+    if (x.groundwater) {
+      const g = x.groundwater;
+      const deeper = g.trendMPerDecade > 0.1;
+      const shallower = g.trendMPerDecade < -0.1;
+      findings.push({
+        layer: "moisture",
+        tone: g.trendMPerDecade > 0.5 ? "bad" : deeper ? "watch" : "good",
+        emoji: "🚰",
+        title: deeper ? "Groundwater is dropping" : shallower ? "Groundwater is rising" : "Groundwater is stable",
+        text: `Nearest USGS well (${g.distanceKm} km): water ${g.latestDepthM} m below ground in ${g.latestDate.slice(0, 4)}, ${signed(g.trendMPerDecade)} m per decade since ${g.firstYear}.`,
       });
     }
   }
@@ -152,12 +193,16 @@ function buildFindings(a: FieldAnalysis, layers: LayerId[], ready: (l: LayerId) 
       title: anomaly === null ? "Rainfall" : anomaly <= -5 ? "Less rain than usual" : anomaly >= 5 ? "More rain than usual" : "Normal rainfall",
       text: `${show(a.water.rainfall, " mm")} in 12 months${anomaly !== null ? ` (${signed(anomaly)}%)` : ""}.${
         balance !== null && balance < 0 ? ` Crops could use ${Math.abs(balance)} mm more water than fell as rain.` : ""
-      }`,
+      }${x.openet ? ` Measured water use here (OpenET, ${x.openet.year}): ${x.openet.annualEt} mm.` : ""}`,
     });
   }
 
   if (layers.includes("vegetation")) {
-    if (a.vegetation.ndvi === null) findings.push(pending("vegetation", "🌿", "Vegetation health"));
+    const s2 = x.sentinel2 ? ` Latest clear Sentinel-2 image: ${x.sentinel2.latestDate} (${x.sentinel2.cloudCover}% cloud).` : "";
+    if (a.vegetation.ndvi === null) {
+      const p = pending("vegetation", "🌿", "Vegetation health", "ndvi");
+      findings.push({ ...p, text: p.text + s2 });
+    }
     else {
       const anomaly = a.vegetation.ndviAnomaly;
       findings.push({
@@ -165,13 +210,13 @@ function buildFindings(a: FieldAnalysis, layers: LayerId[], ready: (l: LayerId) 
         tone: a.vegetation.vegetationStress === "high" ? "bad" : a.vegetation.vegetationStress === "moderate" ? "watch" : "good",
         emoji: "🌿",
         title: anomaly === null ? "Vegetation greenness" : anomaly <= -3 ? "Vegetation is less green than usual" : "Vegetation looks normal",
-        text: `Greenness index ${a.vegetation.ndvi}${anomaly !== null ? ` (${signed(anomaly)}% vs the same weeks in earlier years)` : ""}, image from ${a.vegetation.date}.`,
+        text: `Greenness index ${a.vegetation.ndvi}${anomaly !== null ? ` (${signed(anomaly)}% vs the same weeks in earlier years)` : ""}, image from ${a.vegetation.date}.${s2}`,
       });
     }
   }
 
   if (layers.includes("terrain")) {
-    if (a.soil.slope === null) findings.push(pending("terrain", "⛰️", "Slope & erosion"));
+    if (a.soil.slope === null) findings.push(pending("terrain", "⛰️", "Slope & erosion", "terrain"));
     else
       findings.push({
         layer: "terrain",
@@ -183,7 +228,7 @@ function buildFindings(a: FieldAnalysis, layers: LayerId[], ready: (l: LayerId) 
   }
 
   if (layers.includes("soil")) {
-    if (a.soil.soilSource === null) findings.push(pending("soil", "🟫", "Soil properties"));
+    if (a.soil.soilSource === null) findings.push(pending("soil", "🟫", "Soil properties", "soil"));
     else {
       const om = a.soil.organicMatter;
       const ph = a.soil.ph;
@@ -238,7 +283,15 @@ export default function Analysis() {
           ssurgo: value<SsurgoResult>("ssurgo"),
           ndvi: value<NdviResult>("ndvi"),
           terrain: value<TerrainResult>("terrain"),
-          country: value<{ code: string; name: string }>("country"),
+          country: value<PlaceResult>("country"),
+          extras: {
+            era5: value<Era5Result>("era5"),
+            projection: value<ProjectionResult>("cmip6"),
+            sentinel2: value<Sentinel2Result>("sentinel2"),
+            groundwater: value<GroundwaterResult>("groundwater"),
+            usdaYields: value<NassResult>("nass"),
+            openet: value<OpenEtResult>("openet"),
+          },
           sources: sourceStatuses(snapshot),
         }),
         error: null,
@@ -341,7 +394,17 @@ export default function Analysis() {
   const a = analysis;
   const tone = getScoreTone(a.resilienceScore);
   const ready = (layer: LayerId) => layerReadiness(layer, snapshot);
-  const findings = buildFindings(a, layers, ready);
+  const sourceLoading = (id: SourceId) => ["loading", "idle"].includes(snapshot[id]?.status ?? "idle");
+  const findings: Finding[] = buildFindings(a, layers, sourceLoading).map((f, i) => ({ ...f, id: `${f.layer}-${i}` }));
+  const projection = a.extras.projection;
+  const applyProjection = () => {
+    if (!projection) return;
+    setScenario({
+      deltaT: Math.min(4, Math.max(-1, Math.round(projection.deltaT * 2) / 2)),
+      rainPct: Math.min(30, Math.max(-40, Math.round(projection.rainPct / 5) * 5)),
+    });
+    openFaq("rotations");
+  };
   const rotations = recommendation?.rotations ?? [];
   const top = rotations.find((r) => r.recommended);
   const current = rotations.find((r) => r.id === "current");
@@ -472,6 +535,11 @@ export default function Analysis() {
                 <strong>What if the climate shifts?</strong>
                 <span>Move the sliders to re-run crop suitability and the ranking.</span>
               </div>
+              {projection && (
+                <button type="button" className="scenario-reset scenario-cmip" onClick={applyProjection}>
+                  Use 2041–2050 projection
+                </button>
+              )}
               {scenarioActive && (
                 <button type="button" className="scenario-reset" onClick={() => setScenario({ deltaT: 0, rainPct: 0 })}>
                   Reset
@@ -482,7 +550,7 @@ export default function Analysis() {
               <span>
                 Temperature <b>{signed(scenario.deltaT)} °C</b>
               </span>
-              <input type="range" min={-1} max={3} step={0.5} value={scenario.deltaT} onChange={(e) => setScenario({ ...scenario, deltaT: Number(e.target.value) })} />
+              <input type="range" min={-1} max={4} step={0.5} value={scenario.deltaT} onChange={(e) => setScenario({ ...scenario, deltaT: Number(e.target.value) })} />
             </label>
             <label>
               <span>
@@ -509,7 +577,51 @@ export default function Analysis() {
             Last 12 months ({a.period.start} → {a.period.end}) compared with the same period in earlier years. Arrows show
             the change.
           </p>
-          <div className="metric-grid">{cardsFor(LAYERS.map((l) => l.id))}</div>
+          <div className="metric-grid">
+            {cardsFor(LAYERS.map((l) => l.id))}
+            {a.extras.era5?.rootZone != null && (
+              <MetricCard
+                icon={Droplets}
+                label="Soil moisture · ERA5-Land"
+                value={`${a.extras.era5.rootZone} m³/m³`}
+                description={`Copernicus reanalysis, 28–100 cm · surface ${show(a.extras.era5.surface)} m³/m³ · to ${a.extras.era5.end}`}
+                status={(a.extras.era5.rootZoneAnomaly ?? 0) <= -10 ? "bad" : (a.extras.era5.rootZoneAnomaly ?? 0) <= -4 ? "moderate" : "good"}
+                trend={a.extras.era5.rootZoneAnomaly}
+              />
+            )}
+            {a.extras.groundwater && (
+              <MetricCard
+                icon={Droplets}
+                label="Groundwater depth"
+                value={`${a.extras.groundwater.latestDepthM} m`}
+                description={`USGS well ${a.extras.groundwater.distanceKm} km away · ${signed(a.extras.groundwater.trendMPerDecade)} m/decade (+ = deeper)`}
+                status={a.extras.groundwater.trendMPerDecade > 0.5 ? "bad" : a.extras.groundwater.trendMPerDecade > 0.1 ? "moderate" : "good"}
+              />
+            )}
+            {a.extras.openet && (
+              <MetricCard
+                icon={CloudRain}
+                label="Actual water use (OpenET)"
+                value={`${a.extras.openet.annualEt} mm`}
+                description={`Satellite evapotranspiration in ${a.extras.openet.year} vs crop demand ${show(a.water.evapotranspiration, " mm")}`}
+                status="good"
+              />
+            )}
+            {a.extras.sentinel2 && (
+              <MetricCard
+                icon={Satellite}
+                label="Sentinel-2 images"
+                value={`${a.extras.sentinel2.clearScenes90d} clear`}
+                description={`Cloud-free passes in the last 90 days · latest ${a.extras.sentinel2.latestDate}`}
+                status="good"
+              />
+            )}
+          </div>
+          {a.extras.sentinel2 && (
+            <a className="source-link" href={a.extras.sentinel2.browserUrl} target="_blank" rel="noreferrer">
+              View the latest Sentinel-2 image of this field in the Copernicus Browser <ExternalLink size={12} />
+            </a>
+          )}
         </>
       ),
     },
@@ -523,7 +635,7 @@ export default function Analysis() {
       id: "trends",
       title: "Where is this field heading?",
       hint: `Trends projected to ${a.trends[0]?.projectionYear ?? 2030}`,
-      render: () => <Predictions a={a} />,
+      render: () => <Predictions a={a} onApply={applyProjection} />,
     },
     {
       id: "crops",
@@ -536,6 +648,21 @@ export default function Analysis() {
             {a.country ? `, and compared with what is commonly grown in ${a.country.name}` : ""}.
             {constraints.irrigation ? " Irrigation is assumed available." : ""}
           </p>
+          {a.extras.usdaYields && (
+            <div className="usda-yields">
+              <strong>
+                USDA surveyed yields in {a.extras.usdaYields.county}, {a.extras.usdaYields.state}
+              </strong>
+              <div className="usda-yield-grid">
+                {a.extras.usdaYields.crops.map((c) => (
+                  <span key={c.cropId}>
+                    <b>{c.commodity}</b> {c.latest} {c.unit.toLowerCase()} ({c.latestYear}) · 5-yr avg {c.average5y} ·{" "}
+                    {signed(c.trendPctPerYear)}%/yr
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="cropfit-grid">
             {cropFits.slice(0, 12).map((f) => {
               const common = marketScore(f.crop.id, a.country?.code ?? null, a.latitude, a.longitude) >= 60;
@@ -700,7 +827,7 @@ export default function Analysis() {
 
           <ul className="findings">
             {findings.map((f) => (
-              <li key={f.layer} className={`finding ${f.tone}`}>
+              <li key={f.id} className={`finding ${f.tone}`}>
                 <span className="finding-emoji">{f.emoji}</span>
                 <div>
                   <strong>{f.title}</strong>
@@ -813,10 +940,44 @@ function SeasonStrip({ a }: { a: FieldAnalysis }) {
   );
 }
 
-function Predictions({ a }: { a: FieldAnalysis }) {
-  if (!a.trends.length) return <p className="faq-lead">Not enough complete years of data to estimate trends here.</p>;
+function Predictions({ a, onApply }: { a: FieldAnalysis; onApply: () => void }) {
+  const p = a.extras.projection;
+  const cmip = p ? (
+    <div className="cmip-card">
+      <div>
+        <span className="eyebrow">CLIMATE MODELS · CMIP6</span>
+        <h3>
+          By {p.future}: {signed(p.deltaT)} °C, rain {signed(p.rainPct)}%
+        </h3>
+        <p>
+          Average of {p.models.length} high-resolution models ({p.models.join(", ")}) compared with {p.baseline}, on a
+          high-emission pathway. Model range: {p.deltaTRange[0]} to {p.deltaTRange[1]} °C and {p.rainPctRange[0]} to{" "}
+          {p.rainPctRange[1]}% rain. Days ≥ 32 °C: {p.hotDaysBaseline} → {p.hotDaysFuture} per year.
+        </p>
+        <div className="cmip-months">
+          {p.monthlyDeltaT.map((dt, i) => (
+            <span key={i} title={`${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i]}: ${signed(dt)} °C, rain ${signed(p.monthlyRainPct[i])}%`}>
+              <i style={{ height: `${Math.min(Math.abs(dt) * 18, 40) + 4}px` }} className={dt >= 0 ? "warm" : "cool"} />
+              {"JFMAMJJASOND"[i]}
+            </span>
+          ))}
+        </div>
+      </div>
+      <button type="button" className="primary-button" onClick={onApply}>
+        Test crops under this climate <ArrowRight size={16} />
+      </button>
+    </div>
+  ) : null;
+  if (!a.trends.length)
+    return (
+      <>
+        {cmip}
+        <p className="faq-lead">Not enough complete years of data to estimate trends here.</p>
+      </>
+    );
   return (
     <>
+      {cmip}
       <p className="faq-lead">
         Linear trends fitted to each complete year since 2015 and projected to {a.trends[0].projectionYear} with a 90%
         range. Where the trend is not statistically clear, the projection is simply the average year with its usual
@@ -922,7 +1083,7 @@ function Sources({ a, retry }: { a: FieldAnalysis; retry: (id: SourceId) => void
       </p>
       <div className="source-status-list">
         {a.sources.map((source) => (
-          <div key={source.id} className={`source-status ${source.ok ? "ok" : source.pending ? "pending" : "off"}`}>
+          <div key={source.id} className={`source-status ${source.ok ? "ok" : source.pending ? "pending" : source.notApplicable ? "na" : "off"}`}>
             {source.ok ? (
               <CheckCircle2 size={16} />
             ) : source.pending ? (
@@ -935,8 +1096,10 @@ function Sources({ a, retry }: { a: FieldAnalysis; retry: (id: SourceId) => void
                 <strong>{source.name}</strong>
               </a>
               <small>{source.provider}</small>
-              <span>{source.ok || source.pending ? source.detail : `Unavailable: ${source.detail}`}</span>
-              {!source.ok && !source.pending && (
+              <span>
+                {source.ok || source.pending ? source.detail : source.notApplicable ? `Not enabled: ${source.detail}` : `Unavailable: ${source.detail}`}
+              </span>
+              {!source.ok && !source.pending && !source.notApplicable && (
                 <button type="button" className="source-retry" onClick={() => retry(source.id as SourceId)}>
                   <RefreshCw size={12} /> Retry
                 </button>
@@ -945,6 +1108,22 @@ function Sources({ a, retry }: { a: FieldAnalysis; retry: (id: SourceId) => void
           </div>
         ))}
       </div>
+      <details className="smap-library">
+        <summary>
+          <FileText size={16} />
+          Other resources reviewed · why they are or are not connected
+        </summary>
+        <ul className="resource-notes">
+          {OTHER_RESOURCES.map((r) => (
+            <li key={r.name}>
+              <a href={r.url} target="_blank" rel="noreferrer">
+                <strong>{r.name}</strong>
+              </a>{" "}
+              — {r.note}
+            </li>
+          ))}
+        </ul>
+      </details>
       <details className="smap-library">
         <summary>
           <FileText size={16} />

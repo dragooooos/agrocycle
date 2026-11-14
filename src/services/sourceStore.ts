@@ -1,5 +1,14 @@
 import type { SourceId, SourceStatus } from "../types";
 import {
+  fetchClimateProjection,
+  fetchEra5Land,
+  fetchGroundwater,
+  fetchNassYields,
+  fetchOpenEt,
+  fetchSentinel2,
+} from "./extraSources";
+import type { PlaceResult } from "./nasaData";
+import {
   fetchCountry,
   fetchNdvi,
   fetchPowerDaily,
@@ -34,7 +43,21 @@ const FETCHERS: Record<SourceId, (lat: number, lon: number) => Promise<unknown>>
   soil: fetchSoilGrids,
   ssurgo: fetchSsurgo,
   country: fetchCountry,
+  era5: fetchEra5Land,
+  cmip6: fetchClimateProjection,
+  sentinel2: fetchSentinel2,
+  groundwater: fetchGroundwater,
+  // County yields need the county name, so wait for the place lookup first.
+  nass: async (lat, lon) => {
+    await startSource("country", lat, lon);
+    const place = getSourceState("country", lat, lon);
+    return fetchNassYields(place.status === "ok" ? (place.value as PlaceResult) : null);
+  },
+  openet: fetchOpenEt,
 };
+
+/** Sources that only exist inside the United States. */
+const US_ONLY: SourceId[] = ["ssurgo", "groundwater", "nass", "openet"];
 
 export const SOURCE_INFO: Record<SourceId, { name: string; provider: string; url: string; detail: string }> = {
   power: {
@@ -67,6 +90,42 @@ export const SOURCE_INFO: Record<SourceId, { name: string; provider: string; url
     url: "https://websoilsurvey.nrcs.usda.gov/app/",
     detail: "Field-scale soil map unit: drainage, hydrologic group, organic matter, pH, texture and water-holding capacity.",
   },
+  era5: {
+    name: "ERA5-Land soil moisture",
+    provider: "Copernicus Climate Change Service (CDS) via Open-Meteo",
+    url: "https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land",
+    detail: "Independent reanalysis of soil moisture (0–7 cm and 28–100 cm, m³/m³) since 2015, ~9 km.",
+  },
+  cmip6: {
+    name: "CMIP6 climate projections",
+    provider: "HighResMIP models via Open-Meteo (downscaled with ERA5-Land)",
+    url: "https://open-meteo.com/en/docs/climate-api",
+    detail: "Three high-resolution models, 2041–2050 vs 1995–2014, high-emission pathway (closest to RCP8.5).",
+  },
+  sentinel2: {
+    name: "Sentinel-2 passes",
+    provider: "Copernicus Data Space Ecosystem (STAC)",
+    url: "https://dataspace.copernicus.eu/",
+    detail: "Recent cloud-free (< 20%) Sentinel-2 L2A images over the field, with a link to view them.",
+  },
+  groundwater: {
+    name: "Groundwater wells",
+    provider: "USGS Water Data (OGC API)",
+    url: "https://waterdata.usgs.gov/",
+    detail: "Depth-to-water measurements from the nearest well with a multi-year record.",
+  },
+  nass: {
+    name: "USDA county yields",
+    provider: "USDA NASS Quick Stats (via local proxy)",
+    url: "https://quickstats.nass.usda.gov/",
+    detail: "Surveyed county yields for the main crops over the last decade.",
+  },
+  openet: {
+    name: "OpenET water use",
+    provider: "OpenET ensemble (via local proxy)",
+    url: "https://etdata.org/",
+    detail: "Satellite-based actual evapotranspiration for the last full year, by month.",
+  },
   country: {
     name: "Country",
     provider: "OpenStreetMap Nominatim",
@@ -80,12 +139,17 @@ const keyOf = (id: SourceId, lat: number, lon: number) => `${id}:${lat.toFixed(3
 const states = new Map<string, SourceState>();
 const promises = new Map<string, Promise<void>>();
 
+/** Climate projections do not change, so they are kept for 30 days across visits. */
+const LONG_CACHE = ["cmip6"];
+const storageFor = (key: string) => (LONG_CACHE.some((id) => key.startsWith(`${id}:`)) ? localStorage : sessionStorage);
+const maxAgeFor = (key: string) => (LONG_CACHE.some((id) => key.startsWith(`${id}:`)) ? 30 * 24 : CACHE_HOURS) * 3600000;
+
 function readCache(key: string): unknown | undefined {
   try {
-    const raw = sessionStorage.getItem(CACHE_PREFIX + key);
+    const raw = storageFor(key).getItem(CACHE_PREFIX + key);
     if (!raw) return undefined;
     const { at, value } = JSON.parse(raw) as { at: number; value: unknown };
-    return Date.now() - at < CACHE_HOURS * 3600000 ? value : undefined;
+    return Date.now() - at < maxAgeFor(key) ? value : undefined;
   } catch {
     return undefined;
   }
@@ -93,7 +157,7 @@ function readCache(key: string): unknown | undefined {
 
 function writeCache(key: string, value: unknown) {
   try {
-    sessionStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), value }));
+    storageFor(key).setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), value }));
   } catch {
     // Storage full: the data still works for this page view.
   }
@@ -127,7 +191,7 @@ export function startSource(id: SourceId, lat: number, lon: number): Promise<voi
   const running = promises.get(key);
   if (running) return running;
 
-  if (id === "ssurgo" && !inUnitedStates(lat, lon)) {
+  if (US_ONLY.includes(id) && !inUnitedStates(lat, lon)) {
     states.set(key, { status: "na", error: "Only available inside the United States" });
     return Promise.resolve();
   }
@@ -139,7 +203,9 @@ export function startSource(id: SourceId, lat: number, lon: number): Promise<voi
       writeCache(key, value);
     })
     .catch((reason: unknown) => {
-      states.set(key, { status: "error", error: describeError(reason) });
+      // Missing API key / proxy is a configuration state, not a failure.
+      const notConfigured = reason instanceof Error && reason.name === "NotConfiguredError";
+      states.set(key, { status: notConfigured ? "na" : "error", error: describeError(reason) });
     })
     .finally(() => {
       promises.delete(key);
@@ -153,9 +219,13 @@ export function resetSource(id: SourceId, lat: number, lon: number) {
   states.delete(keyOf(id, lat, lon));
 }
 
+const CORE: SourceId[] = ["power", "ndvi", "terrain", "soil", "ssurgo"];
+
 export function sourceStatuses(snapshot: Record<SourceId, SourceState>): SourceStatus[] {
   return (Object.keys(SOURCE_INFO) as SourceId[])
-    .filter((id) => id !== "country" && snapshot[id]?.status !== "na")
+    .filter((id) => id !== "country")
+    // Hide US-only sources outside the US; keep "needs an API key" so the farmer knows why.
+    .filter((id) => !(snapshot[id]?.status === "na" && snapshot[id]?.error?.startsWith("Only available")))
     .map((id) => {
       const state = snapshot[id] ?? { status: "idle" };
       const info = SOURCE_INFO[id];
@@ -166,10 +236,12 @@ export function sourceStatuses(snapshot: Record<SourceId, SourceState>): SourceS
         url: info.url,
         ok: state.status === "ok",
         pending: state.status === "loading" || state.status === "idle",
+        notApplicable: state.status === "na",
+        core: CORE.includes(id),
         detail:
           state.status === "ok"
             ? info.detail
-            : state.status === "error"
+            : state.status === "error" || state.status === "na"
               ? state.error ?? "Unavailable"
               : "Loading in the background…",
       };

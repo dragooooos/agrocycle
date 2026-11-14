@@ -43,7 +43,19 @@ export type Confidence = "high" | "medium" | "low";
 
 export type LayerId = "moisture" | "temperature" | "rain" | "vegetation" | "terrain" | "soil";
 
-export type SourceId = "power" | "ndvi" | "terrain" | "soil" | "ssurgo" | "country";
+export type SourceId =
+  | "power"
+  | "ndvi"
+  | "terrain"
+  | "soil"
+  | "ssurgo"
+  | "country"
+  | "era5"
+  | "cmip6"
+  | "sentinel2"
+  | "groundwater"
+  | "nass"
+  | "openet";
 
 export interface SourceStatus {
   id: string;
@@ -52,6 +64,10 @@ export interface SourceStatus {
   ok: boolean;
   /** Still loading (not a failure). */
   pending?: boolean;
+  /** Needs configuration (API key / proxy) or does not apply here. */
+  notApplicable?: boolean;
+  /** Core sources affect data confidence; extras do not. */
+  core?: boolean;
   detail: string;
   url?: string;
 }
@@ -162,6 +178,15 @@ export interface SoilData {
   soilSource: "SSURGO" | "SoilGrids" | null;
 }
 
+export interface AnalysisExtras {
+  era5: import("../services/extraSources").Era5Result | null;
+  projection: import("../services/extraSources").ProjectionResult | null;
+  sentinel2: import("../services/extraSources").Sentinel2Result | null;
+  groundwater: import("../services/extraSources").GroundwaterResult | null;
+  usdaYields: import("../services/extraSources").NassResult | null;
+  openet: import("../services/extraSources").OpenEtResult | null;
+}
+
 export interface FieldAnalysis {
   latitude: number;
   longitude: number;
@@ -175,7 +200,9 @@ export interface FieldAnalysis {
   dailyByMonth: { tmax: number[][]; tmin: number[][]; years: number };
   trends: Trend[];
   odds: SeasonOdds;
-  country: { code: string; name: string } | null;
+  country: { code: string; name: string; state?: string; stateCode?: string; county?: string } | null;
+  /** Results from the additional sources (null while loading or unavailable). */
+  extras: AnalysisExtras;
   resilienceScore: number;
   confidence: Confidence;
   caveats: string[];

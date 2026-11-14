@@ -1834,3 +1834,59 @@ html[data-theme="dark"] .season-flags .heat { background: rgba(217, 160, 74, .2)
   .suggestion-card { flex-direction: column; align-items: stretch; }
   .suggestion-side { flex-direction: row; justify-content: space-between; }
 }
+
+/* ============ Additional sources (CMIP6, ERA5-Land, Sentinel-2, USGS, USDA) ============ */
+.cmip-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(217, 115, 74, .3);
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--surface), rgba(217, 115, 74, .08));
+}
+.cmip-card h3 { margin: 4px 0 6px; font-size: 18px; }
+.cmip-card p { margin: 0 0 10px; font-size: 12px; line-height: 1.55; color: var(--text-soft); max-width: 720px; }
+.cmip-card .primary-button { flex: none; }
+.cmip-months { display: flex; align-items: flex-end; gap: 6px; height: 56px; }
+.cmip-months span { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; color: var(--text-muted); }
+.cmip-months i { display: block; width: 12px; border-radius: 4px 4px 0 0; }
+.cmip-months i.warm { background: #d9734a; }
+.cmip-months i.cool { background: #3b82c4; }
+.scenario-cmip { background: rgba(217, 115, 74, .15); color: #a4461f; }
+html[data-theme="dark"] .scenario-cmip { color: #f2a283; }
+
+.usda-yields {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+}
+.usda-yields strong { display: block; margin-bottom: 8px; font-size: 13px; color: var(--green-dark); }
+.usda-yield-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 16px; }
+.usda-yield-grid span { font-size: 12px; color: var(--text-soft); }
+.usda-yield-grid b { color: var(--text); }
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-dark);
+  text-decoration: none;
+}
+.source-link:hover { text-decoration: underline; }
+.source-status.na { background: var(--surface-soft); opacity: .85; }
+.source-status.na > svg { color: var(--text-muted); flex: none; margin-top: 2px; }
+.resource-notes { margin: 0 0 14px; padding-left: 18px; display: grid; gap: 8px; }
+.resource-notes li { font-size: 12px; line-height: 1.5; color: var(--text-soft); }
+.resource-notes a { color: var(--green-dark); text-decoration: none; }
+
+@media (max-width: 760px) {
+  .cmip-card { flex-direction: column; align-items: stretch; }
+}
