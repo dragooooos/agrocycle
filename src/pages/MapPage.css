@@ -1217,3 +1217,88 @@ html[data-theme="dark"] .farm-toggle.active { background: #153b28; color: #e9f7e
 .soil-check.ok { border-left-color: var(--green); color: var(--green-dark); }
 .soil-check.none { border-left-color: #d9734a; color: #a4461f; background: rgba(217, 115, 74, .1); }
 html[data-theme="dark"] .soil-check.none { color: #f2a283; }
+
+/* Your farm panel: same tile style as the other panels, crop list scrolls */
+#island-panel-farm {
+  max-height: min(560px, calc(100vh - 40px));
+}
+
+.farm-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 14px 0 8px;
+  min-height: 24px;
+}
+
+.farm-section-heading > span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.farm-section-heading > small {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.farm-section-heading .indicator-actions {
+  margin: 0;
+}
+
+#island-panel-farm .farm-hint {
+  margin-top: 0;
+}
+
+.crop-chip-step {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(20, 97, 61, 0.14);
+  font-size: 9px;
+}
+
+.farm-crop-grid {
+  max-height: 210px;
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.farm-crop-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.farm-crop-grid::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+.farm-crop-grid .mini-priority {
+  cursor: pointer;
+}
+
+.farm-crop-grid .mini-priority:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.farm-crop-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+
+html[data-theme="dark"] .crop-chip {
+  color: #baf3ce;
+  background: #173d2a;
+}
+
+html[data-theme="dark"] .crop-chip-step {
+  background: rgba(186, 243, 206, 0.16);
+}
