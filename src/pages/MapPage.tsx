@@ -190,7 +190,7 @@ export default function MapPage() {
             >
               <div className="island-panel-header">
                 <div>
-                  <span className="eyebrow">NAVIGATE</span>
+                  <span className="eyebrow">Navigate</span>
                 </div>
                 <button
                   className="island-close"
@@ -213,7 +213,7 @@ export default function MapPage() {
             >
               <div className="island-panel-header">
                 <div>
-                  <span className="eyebrow">FARMER PRIORITIES</span>
+                  <span className="eyebrow">Farmer priorities</span>
                 </div>
                 <button
                   className="island-close"
@@ -252,7 +252,7 @@ export default function MapPage() {
             >
               <div className="island-panel-header">
                 <div>
-                  <span className="eyebrow">CLIMATE INDICATORS</span>
+                  <span className="eyebrow">Climate indicators</span>
                 </div>
                 <button
                   className="island-close"
@@ -298,7 +298,7 @@ export default function MapPage() {
             >
               <div className="island-panel-header">
                 <div>
-                  <span className="eyebrow">YOUR FARM · OPTIONAL</span>
+                  <span className="eyebrow">Your farm · optional</span>
                 </div>
                 <button
                   className="island-close"
