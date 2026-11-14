@@ -8,6 +8,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import area from "@turf/area";
+import type { GeoJsonObject } from "geojson";
 
 import "@geoman-io/leaflet-geoman-free";
 import "leaflet/dist/leaflet.css";
@@ -35,6 +36,64 @@ function MapResizeFix() {
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
+  }, [map]);
+
+  return null;
+}
+
+// Country borders (Natural Earth 1:10m land boundary lines, public domain),
+// fetched once at runtime and drawn as a transparent overlay.
+const BORDER_SOURCES = [
+  "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_10m_admin_0_boundary_lines_land.geojson",
+  "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_boundary_lines_land.geojson",
+];
+
+let bordersRequest: Promise<GeoJsonObject | null> | null = null;
+
+function loadBorders() {
+  bordersRequest ??= (async () => {
+    for (const url of BORDER_SOURCES) {
+      try {
+        const response = await fetch(url);
+        if (response.ok) return (await response.json()) as GeoJsonObject;
+      } catch {
+        // try the next source
+      }
+    }
+    bordersRequest = null; // allow a retry on the next visit
+    return null;
+  })();
+  return bordersRequest;
+}
+
+function CountryBorders() {
+  const map = useMap();
+
+  useEffect(() => {
+    let active = true;
+    let layers: L.Layer[] = [];
+
+    // Own pane: above the satellite tiles, below drawn fields and markers.
+    if (!map.getPane("country-borders")) {
+      const pane = map.createPane("country-borders");
+      pane.style.zIndex = "350";
+      pane.style.pointerEvents = "none";
+    }
+
+    loadBorders().then((data) => {
+      if (!active || !data) return;
+      const base = { pane: "country-borders", interactive: false } as const;
+      layers = [
+        // Continuous, semi-transparent white line.
+        L.geoJSON(data, { ...base, style: { color: "#ffffff", weight: 1.5, opacity: 0.5 } }),
+      ];
+      layers.forEach((layer) => layer.addTo(map));
+    });
+
+    return () => {
+      active = false;
+      layers.forEach((layer) => layer.remove());
+    };
   }, [map]);
 
   return null;
@@ -294,6 +353,7 @@ export default function MapView({
         />
 
         <MapResizeFix />
+        <CountryBorders />
         <MapController target={target} />
         <MapClickHandler onLocation={handleMapClick} disabled={isDrawing} />
         <DrawingTools onFieldSelected={onFieldSelected} onDrawingStateChange={handleDrawingStateChange} />
