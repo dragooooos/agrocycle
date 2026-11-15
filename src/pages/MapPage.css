@@ -25,6 +25,12 @@
   font-family: "DM Sans", sans-serif;
 }
 
+/* Where imagery hasn't arrived yet, show a dark earthy tone close to the
+   satellite photos instead of Leaflet's light grey, so loading isn't a flash. */
+.fullscreen-map .leaflet-container {
+  background: #27342b;
+}
+
 .map-top-card {
   position: absolute;
 
