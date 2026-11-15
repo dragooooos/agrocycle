@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CloudRain,
+  Download,
   Droplets,
   ExternalLink,
   Flame,
@@ -16,6 +17,7 @@ import {
   Snowflake,
   Sprout,
   Thermometer,
+  type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -23,6 +25,7 @@ import { useNavigate } from "react-router-dom";
 import MetricCard, { type MetricTone } from "../components/MetricCard";
 import RotationCard, { cropSchedule } from "../components/RotationCard";
 import { yearComparison } from "../utils/yearComparison";
+import { downloadFieldReport, type ReportMeasurement } from "../utils/fieldReport";
 import Accordion, { type AccordionItem } from "../components/Accordion";
 
 import { LAYERS, readLayers, saveLayers, sourcesFor } from "../data/layers";
@@ -466,105 +469,60 @@ export default function Analysis() {
     soil: om === null ? undefined : toneBy(om < 1.5, om < 2.5),
   };
 
-  const cardsFor = (layerSet: LayerId[]) => {
-    const cards: ReactNode[] = [];
-    if (layerSet.includes("moisture") && a.water.rootZoneWetness !== null)
-      cards.push(
-        <MetricCard
-          key="moisture"
-          tone={tones.moisture}
-          icon={Droplets}
-          label="Soil moisture"
-          value={pct(a.water.rootZoneWetness)}
-          description="Top metre of soil"
-          trend={a.water.rootZoneAnomaly}
-        />,
-      );
-    if (layerSet.includes("rain"))
-      cards.push(
-        <MetricCard
-          key="rain"
-          tone={tones.rain}
-          icon={CloudRain}
-          label="Rainfall"
-          value={show(a.water.rainfall, " mm")}
-          description={`${show(a.water.heavyRainDays)} heavy-rain days`}
-          trend={a.water.rainfallAnomaly}
-        />,
-        <MetricCard
-          key="balance"
-          tone={tones.balance}
-          icon={Droplets}
-          label="Water balance"
-          value={show(a.water.waterBalance, " mm")}
-          description="Rain minus crop demand"
-        />,
-      );
-    if (layerSet.includes("temperature"))
-      cards.push(
-        <MetricCard
-          key="temp"
-          tone={tones.temp}
-          icon={Thermometer}
-          label="Mean temperature"
-          value={show(a.climate.meanTemperature, "°C")}
-          description={`Max ${show(a.climate.maxTemperature, " °C")}`}
-          trend={a.climate.temperatureAnomaly}
-          trendText={a.climate.temperatureAnomaly !== null ? `${Math.abs(a.climate.temperatureAnomaly)}°C` : undefined}
-        />,
-        <MetricCard
-          key="heat"
-          tone={tones.heat}
-          icon={Flame}
-          label={`Days above ${THRESHOLDS.heatDayC} °C`}
-          value={show(a.climate.heatStressDays, " days")}
-          description={`Typically ${show(a.climate.heatStressBaseline)}`}
-        />,
-        <MetricCard
-          key="frost"
-          tone={tones.frost}
-          icon={Snowflake}
-          label="Frost days"
-          value={show(a.climate.frostDays, " days")}
-          description={`Typically ${show(a.climate.frostBaseline)}`}
-        />,
-      );
-    if (layerSet.includes("vegetation") && a.vegetation.ndvi !== null)
-      cards.push(
-        <MetricCard
-          key="ndvi"
-          tone={tones.ndvi}
-          icon={Leaf}
-          label="Vegetation greenness"
-          value={show(a.vegetation.ndvi)}
-          description={a.vegetation.date ?? ""}
-          trend={a.vegetation.ndviAnomaly}
-        />,
-      );
-    if (layerSet.includes("terrain") && a.soil.slope !== null)
-      cards.push(
-        <MetricCard
-          key="erosion"
-          tone={tones.erosion}
-          icon={Mountain}
-          label="Erosion risk"
-          value={a.soil.erosionRisk}
-          description={`Slope ${show(a.soil.slope, "%")}`}
-        />,
-      );
-    if (layerSet.includes("soil") && a.soil.soilSource !== null)
-      cards.push(
-        <MetricCard
-          key="soil"
-          tone={tones.soil}
-          icon={Sprout}
-          label="Soil"
-          value={a.soil.soilType ?? "—"}
-          description={`Organic matter ${show(a.soil.organicMatter, "%")} · pH ${show(a.soil.ph)}`}
-        />,
-      );
-    return cards;
-  };
+  // Every measurement once, as data: the cards and the PDF report both use this list.
+  const gw = a.extras.groundwater;
+  const measures: (Omit<ReportMeasurement, "change"> & {
+    key: string;
+    layer: LayerId;
+    icon: LucideIcon;
+    trend?: number | null;
+    trendText?: string;
+    shown: boolean;
+  })[] = [
+    { key: "moisture", layer: "moisture", shown: a.water.rootZoneWetness !== null, tone: tones.moisture, icon: Droplets, label: "Soil moisture", value: pct(a.water.rootZoneWetness), description: "Top metre of soil", trend: a.water.rootZoneAnomaly },
+    { key: "groundwater", layer: "moisture", shown: !!gw, tone: gw ? toneBy(gw.trendMPerDecade > 0.5, gw.trendMPerDecade > 0.1) : undefined, icon: Droplets, label: "Groundwater depth", value: gw ? `${gw.latestDepthM} m` : "—", description: gw ? `Nearest well, ${gw.distanceKm} km` : "" },
+    { key: "rain", layer: "rain", shown: true, tone: tones.rain, icon: CloudRain, label: "Rainfall", value: show(a.water.rainfall, " mm"), description: `${show(a.water.heavyRainDays)} heavy-rain days`, trend: a.water.rainfallAnomaly },
+    { key: "balance", layer: "rain", shown: true, tone: tones.balance, icon: Droplets, label: "Water balance", value: show(a.water.waterBalance, " mm"), description: "Rain minus crop demand" },
+    { key: "openet", layer: "rain", shown: !!a.extras.openet, icon: CloudRain, label: "Actual water use", value: a.extras.openet ? `${a.extras.openet.annualEt} mm` : "—", description: a.extras.openet ? `Satellite estimate, ${a.extras.openet.year}` : "" },
+    { key: "temp", layer: "temperature", shown: true, tone: tones.temp, icon: Thermometer, label: "Mean temperature", value: show(a.climate.meanTemperature, "°C"), description: `Max ${show(a.climate.maxTemperature, " °C")}`, trend: a.climate.temperatureAnomaly, trendText: a.climate.temperatureAnomaly !== null ? `${Math.abs(a.climate.temperatureAnomaly)}°C` : undefined },
+    { key: "heat", layer: "temperature", shown: true, tone: tones.heat, icon: Flame, label: `Days above ${THRESHOLDS.heatDayC} °C`, value: show(a.climate.heatStressDays, " days"), description: `Typically ${show(a.climate.heatStressBaseline)}` },
+    { key: "frost", layer: "temperature", shown: true, tone: tones.frost, icon: Snowflake, label: "Frost days", value: show(a.climate.frostDays, " days"), description: `Typically ${show(a.climate.frostBaseline)}` },
+    { key: "ndvi", layer: "vegetation", shown: a.vegetation.ndvi !== null, tone: tones.ndvi, icon: Leaf, label: "Vegetation greenness", value: show(a.vegetation.ndvi), description: a.vegetation.date ?? "", trend: a.vegetation.ndviAnomaly },
+    { key: "erosion", layer: "terrain", shown: a.soil.slope !== null, tone: tones.erosion, icon: Mountain, label: "Erosion risk", value: a.soil.erosionRisk, description: `Slope ${show(a.soil.slope, "%")}` },
+    { key: "soil", layer: "soil", shown: a.soil.soilSource !== null, tone: tones.soil, icon: Sprout, label: "Soil", value: a.soil.soilType ?? "—", description: `Organic matter ${show(a.soil.organicMatter, "%")} · pH ${show(a.soil.ph)}` },
+  ];
+  // Same order as before: groundwater and actual water use come after the main cards.
+  const order = ["moisture", "rain", "balance", "temp", "heat", "frost", "ndvi", "erosion", "soil", "groundwater", "openet"];
+  measures.sort((x, y) => order.indexOf(x.key) - order.indexOf(y.key));
+
+  const cardsFor = (layerSet: LayerId[]) =>
+    measures
+      .filter((m) => m.shown && layerSet.includes(m.layer))
+      .map(({ key, layer: _layer, shown: _shown, ...m }) => <MetricCard key={key} {...m} />);
+
+  const changeText = (trend?: number | null, trendText?: string) =>
+    trend === undefined || trend === null
+      ? null
+      : `${trend > 0 ? "+" : trend < 0 ? "−" : ""}${trendText ?? `${Math.abs(trend)}%`} vs normal`;
+
+  const downloadReport = () =>
+    downloadFieldReport({
+      field,
+      analysis: a,
+      verdict,
+      // The report holds everything, not only the layers chosen on screen.
+      findings: buildFindings(a, LAYERS.map((l) => l.id), sourceLoading),
+      measurements: measures
+        .filter((m) => m.shown)
+        .map((m) => ({ label: m.label, value: m.value, description: m.description, tone: m.tone, change: changeText(m.trend, m.trendText) })),
+      rotations: shownRotations,
+      cropFits,
+      priorities,
+      constraints,
+      farmerNote,
+      scenario,
+    });
+  const stillLoading = a.sources.some((source) => source.pending);
 
   const faqItems: AccordionItem[] = [
     {
@@ -779,7 +737,17 @@ export default function Analysis() {
 
       <main className="page-container analysis-page essentials-page">
         <section className="essentials-hero">
-          <h1>Your field at a glance</h1>
+          <div className="essentials-hero-top">
+            <h1>Your field at a glance</h1>
+            <button
+              type="button"
+              className="primary-button report-button"
+              onClick={downloadReport}
+              title={stillLoading ? "Some extra data is still loading; it will be marked as such in the report." : "Save every value for this field as a PDF"}
+            >
+              <Download size={17} /> Download report
+            </button>
+          </div>
           <div className="location-pill">
             <MapPin size={15} />
             <span>
@@ -870,23 +838,6 @@ export default function Analysis() {
             <span className="eyebrow">LAST 12 MONTHS</span>
             <div className="metric-grid">
               {cardsFor(layers)}
-              {layers.includes("moisture") && a.extras.groundwater && (
-                <MetricCard
-                  icon={Droplets}
-                  label="Groundwater depth"
-                  value={`${a.extras.groundwater.latestDepthM} m`}
-                  tone={toneBy(a.extras.groundwater.trendMPerDecade > 0.5, a.extras.groundwater.trendMPerDecade > 0.1)}
-                  description={`Nearest well, ${a.extras.groundwater.distanceKm} km`}
-                />
-              )}
-              {layers.includes("rain") && a.extras.openet && (
-                <MetricCard
-                  icon={CloudRain}
-                  label="Actual water use"
-                  value={`${a.extras.openet.annualEt} mm`}
-                  description={`Satellite estimate, ${a.extras.openet.year}`}
-                />
-              )}
             </div>
             {layers.includes("vegetation") && a.extras.sentinel2 && (
               <a className="source-link" href={a.extras.sentinel2.browserUrl} target="_blank" rel="noreferrer">

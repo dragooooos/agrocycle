@@ -50,6 +50,24 @@ body:has(.analysis-page)::before {
   gap: 6px;
 }
 
+.essentials-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.report-button {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .report-button {
+    width: 100%;
+  }
+}
+
 .essentials-hero h1 {
   margin: 0;
   font-size: clamp(28px, 3.6vw, 40px);
