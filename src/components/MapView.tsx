@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import {
   MapContainer,
@@ -14,10 +14,15 @@ import "leaflet/dist/leaflet.css";
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 
 import type { FieldSelection } from "../types";
+import { outlineOf } from "../services/selection";
 import CoordinatesBox from "./CoordinatesBox";
 
 interface MapViewProps {
   onFieldSelected: (selection: FieldSelection) => void;
+  /** Called when the selected field outline is deleted with the toolbar's removal tool. */
+  onSelectionCleared?: () => void;
+  /** A saved selection to show again (point marker or editable outline), e.g. when coming back from the analysis page. */
+  initialSelection?: FieldSelection | null;
   initialLocation?: { latitude: number; longitude: number } | null;
   /**
    * When provided, the "Find a location" box is rendered inside this element
@@ -119,14 +124,35 @@ function MapClickHandler({
   return null;
 }
 
+function selectionFromLayer(layer: L.Polygon): FieldSelection {
+  const geoJson = layer.toGeoJSON();
+  const center = layer.getBounds().getCenter();
+  return {
+    area: area(geoJson),
+    latitude: Number(center.lat.toFixed(6)),
+    longitude: Number(center.lng.toFixed(6)),
+    selectionType: "area",
+    areaUnit: "m2",
+    geoJson,
+  };
+}
+
 function DrawingTools({
   onFieldSelected,
   onDrawingStateChange,
+  onSelectionCleared,
+  initialOutline,
+  selectedShape,
 }: {
   onFieldSelected: (selection: FieldSelection) => void;
   onDrawingStateChange: (drawing: boolean) => void;
+  onSelectionCleared?: () => void;
+  initialOutline: [number, number][][] | null;
+  /** The outline that is the current selection (null when a point is selected). */
+  selectedShape: MutableRefObject<L.Polygon | null>;
 }) {
   const map = useMap();
+  const restored = useRef(false);
 
   useEffect(() => {
     const pm = (map as any).pm;
@@ -148,18 +174,17 @@ function DrawingTools({
     });
 
     const selectLayer = (layer: L.Polygon) => {
-      const geoJson = layer.toGeoJSON();
-      const squareMeters = area(geoJson);
-      const center = layer.getBounds().getCenter();
+      selectedShape.current = layer;
+      onFieldSelected(selectionFromLayer(layer));
+    };
 
-      onFieldSelected({
-        area: squareMeters,
-        latitude: Number(center.lat.toFixed(6)),
-        longitude: Number(center.lng.toFixed(6)),
-        selectionType: "area",
-        areaUnit: "m2",
-        geoJson,
-      });
+    // Make the shape resizable right away: drag a corner (or a vertex of a
+    // polygon) to reshape it. Rectangles stay rectangular while resizing.
+    // Re-measure the area whenever the shape changes, including edits made
+    // later through the toolbar's edit tool.
+    const makeEditable = (layer: L.Polygon) => {
+      layer.on("pm:edit", () => selectLayer(layer));
+      (layer as any).pm?.enable({ allowSelfIntersection: false });
     };
 
     const handleCreate = (event: any) => {
@@ -167,17 +192,38 @@ function DrawingTools({
       if (!(layer instanceof L.Polygon)) return;
 
       selectLayer(layer);
+      makeEditable(layer);
+    };
 
-      // Make the shape resizable right away: drag a corner (or a vertex of a
-      // polygon) to reshape it. Rectangles stay rectangular while resizing.
-      // Re-measure the area whenever the shape changes, including edits made
-      // later through the toolbar's edit tool.
-      layer.on("pm:edit", () => selectLayer(layer));
-      (layer as any).pm?.enable({ allowSelfIntersection: false });
+    // Deleting the outline that is the current selection clears the selection.
+    const handleRemove = (event: any) => {
+      if (event.layer && event.layer === selectedShape.current) {
+        selectedShape.current = null;
+        onSelectionCleared?.();
+      }
+    };
+
+    // Coming back to the map: redraw the saved outline once, already selected and editable.
+    if (initialOutline && !restored.current) {
+      restored.current = true;
+      const layer = L.polygon(initialOutline).addTo(map);
+      selectedShape.current = layer;
+      makeEditable(layer);
+    }
+
+    // Placing the first corner of a new outline replaces the selected one.
+    // (Geoman places that corner on a map click, for rectangles and polygons alike.)
+    const replaceSelectedShape = () => {
+      const old = selectedShape.current;
+      if (!old) return;
+      selectedShape.current = null;
+      map.removeLayer(old);
+      onSelectionCleared?.();
     };
 
     const handleDrawStart = () => {
       onDrawingStateChange(true);
+      map.once("click", replaceSelectedShape);
       // Explicitly disable Leaflet panning while Geoman is drawing.
       // Geoman normally handles this, but making it explicit avoids a
       // one-frame drag/jump on some browsers and touchpads.
@@ -185,18 +231,22 @@ function DrawingTools({
     };
 
     const handleDrawEnd = () => {
+      map.off("click", replaceSelectedShape); // drawing cancelled before any corner was placed
       onDrawingStateChange(false);
       map.dragging.enable();
     };
 
     map.on("pm:create", handleCreate);
+    map.on("pm:remove", handleRemove);
     map.on("pm:drawstart", handleDrawStart);
     map.on("pm:drawend", handleDrawEnd);
 
     return () => {
       map.off("pm:create", handleCreate);
+      map.off("pm:remove", handleRemove);
       map.off("pm:drawstart", handleDrawStart);
       map.off("pm:drawend", handleDrawEnd);
+      map.off("click", replaceSelectedShape);
       map.dragging.enable();
       try {
         pm.removeControls();
@@ -204,26 +254,34 @@ function DrawingTools({
         // cleanup
       }
     };
-  }, [map, onFieldSelected]);
+    // initialOutline is only used on the first run (guarded by `restored`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, onFieldSelected, onSelectionCleared]);
 
   return null;
 }
 
 export default function MapView({
   onFieldSelected,
+  onSelectionCleared,
+  initialSelection = null,
   initialLocation = null,
   coordinatesContainer,
 }: MapViewProps) {
-  const defaultLocation = initialLocation ?? {
+  const defaultLocation = initialSelection ?? initialLocation ?? {
     latitude: 45.9432,
     longitude: 24.9668,
   };
+  // Read once: the saved outline is only redrawn when the map first opens.
+  const [initialOutline] = useState(() => outlineOf(initialSelection));
+  const [initialBounds] = useState(() => (initialOutline ? L.polygon(initialOutline).getBounds() : null));
+  const selectedShape = useRef<L.Polygon | null>(null);
 
-  const [target, setTarget] = useState(defaultLocation);
+  const [target, setTarget] = useState<{ latitude: number; longitude: number } | null>(null);
   const [clickedLocation, setClickedLocation] = useState<{
     latitude: number;
     longitude: number;
-  } | null>(null);
+  } | null>(initialSelection?.selectionType === "point" ? initialSelection : null);
   const [isDrawing, setIsDrawing] = useState(false);
 
   // Starting a new shape clears the point marker left by an earlier click.
@@ -234,6 +292,7 @@ export default function MapView({
 
   const handleGoTo = useCallback((latitude: number, longitude: number) => {
     const location = { latitude, longitude };
+    selectedShape.current = null; // a point is now the selection, not an outline
     setTarget(location);
     setClickedLocation(location);
     onFieldSelected({
@@ -246,6 +305,7 @@ export default function MapView({
 
   const handleMapClick = useCallback((latitude: number, longitude: number) => {
     const location = { latitude, longitude };
+    selectedShape.current = null; // a point is now the selection, not an outline
     setClickedLocation(location);
     // Crucially: no setTarget() here. Clicking the map should not trigger
     // MapController.flyTo(), which was the source of the visual jump.
@@ -277,8 +337,9 @@ export default function MapView({
   return (
     <div className="map-wrapper fullscreen-map">
       <MapContainer
-        center={[defaultLocation.latitude, defaultLocation.longitude]}
-        zoom={16}
+        {...(initialBounds
+          ? { bounds: initialBounds, boundsOptions: { padding: [60, 60] as [number, number], maxZoom: 18 } }
+          : { center: [defaultLocation.latitude, defaultLocation.longitude] as [number, number], zoom: 16 })}
         minZoom={2}
         maxZoom={20}
         scrollWheelZoom
@@ -307,7 +368,13 @@ export default function MapView({
         <MapResizeFix />
         <MapController target={target} />
         <MapClickHandler onLocation={handleMapClick} disabled={isDrawing} />
-        <DrawingTools onFieldSelected={onFieldSelected} onDrawingStateChange={handleDrawingStateChange} />
+        <DrawingTools
+          onFieldSelected={onFieldSelected}
+          onDrawingStateChange={handleDrawingStateChange}
+          onSelectionCleared={onSelectionCleared}
+          initialOutline={initialOutline}
+          selectedShape={selectedShape}
+        />
         <LocationMarker location={clickedLocation} />
       </MapContainer>
 

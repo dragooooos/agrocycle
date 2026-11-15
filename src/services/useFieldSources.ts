@@ -17,6 +17,15 @@ const ALL: SourceId[] = [
   "openet",
 ];
 
+/**
+ * Starts a source unless it already failed for this location in this session.
+ * Moving between the map and the analysis page then sends no new requests for
+ * an unchanged selection; failed sources are retried with `retry` (the page's
+ * Retry button) or after a reload.
+ */
+const startUnlessFailed = (id: SourceId, lat: number, lon: number) =>
+  getSourceState(id, lat, lon).status === "error" ? Promise.resolve() : startSource(id, lat, lon);
+
 const snapshotOf = (lat: number, lon: number) =>
   Object.fromEntries(ALL.map((id) => [id, getSourceState(id, lat, lon)])) as Record<SourceId, SourceState>;
 
@@ -51,17 +60,17 @@ export function useFieldSources(lat: number | undefined, lon: number | undefined
     };
 
     refresh();
-    startSource("soil", lat, lon).finally(() => {
+    startUnlessFailed("soil", lat, lon).finally(() => {
       refresh();
       if (!active || hasNoSoil(lat, lon)) return;
 
       const chosen = priorityRef.current;
       const first = ALL.filter((id) => id !== "soil" && chosen.includes(id));
       const rest = ALL.filter((id) => id !== "soil" && !chosen.includes(id));
-      first.forEach((id) => startSource(id, lat, lon).finally(refresh));
-      startSource("power", lat, lon).finally(() => {
+      first.forEach((id) => startUnlessFailed(id, lat, lon).finally(refresh));
+      startUnlessFailed("power", lat, lon).finally(() => {
         if (!active) return;
-        rest.forEach((id) => startSource(id, lat, lon).finally(refresh));
+        rest.forEach((id) => startUnlessFailed(id, lat, lon).finally(refresh));
         refresh();
       });
     });
