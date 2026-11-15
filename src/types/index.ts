@@ -178,6 +178,13 @@ export interface SoilData {
   soilSource: "SSURGO" | "SoilGrids" | null;
 }
 
+export interface ResiliencePart {
+  id: "water" | "heat" | "soil" | "vegetation" | "erosion" | "droughtRisk" | "heatRisk";
+  label: string;
+  weight: number;
+  mark: number;
+}
+
 export interface LandStatus {
   farmable: boolean;
   kind: "land" | "water-or-ice" | "no-soil" | "too-cold";
@@ -212,6 +219,8 @@ export interface FieldAnalysis {
   extras: AnalysisExtras;
   /** null when the point is not farmable (see landStatus). */
   resilienceScore: number | null;
+  /** The marks behind the resilience score (empty when not farmable). */
+  resilienceParts: ResiliencePart[];
   landStatus: LandStatus;
   confidence: Confidence;
   caveats: string[];

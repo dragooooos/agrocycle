@@ -3,6 +3,7 @@ import type {
   Confidence,
   FieldAnalysis,
   LandStatus,
+  ResiliencePart,
   MonthlyProfile,
   RiskLevel,
   SeasonOdds,
@@ -331,19 +332,21 @@ export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
 
   const land = landStatus(root, monthly.map((m) => m.tMean), input.noSoil ?? false);
 
-  // Resilience score.
-  const heatPressure = clamp((heat.current ?? 0) / 40) * 100;
-  const erosionPressure = { low: 15, moderate: 50, high: 85 }[erosionRisk];
-  const vegPressure = vegetationStress ? { low: 15, moderate: 50, high: 85 }[vegetationStress] : 40;
-  const soilPressure = organicMatter === null ? 50 : organicMatter < 1.5 ? 80 : organicMatter < 3 ? 45 : 15;
-  const resilienceScore = Math.round(
-    100 -
-      (0.35 * waterStress +
-        0.2 * heatPressure +
-        0.15 * erosionPressure +
-        0.15 * vegPressure +
-        0.15 * soilPressure),
-  );
+  // Resilience score: weighted average of 0–100 "health" marks.
+  // 70% asks "is this year worse than normal here?", 30% "how risky is this place in general?".
+  // Missing data is left out (weights re-normalised) instead of counting as a penalty.
+  const resilience = resilienceScoreFrom({
+    rootAnomaly,
+    rootWetness: rootWet,
+    rainAnomaly: pctChange(rainfall.current, rainfall.baseline),
+    heatDays: heat.current,
+    heatBaseline: heat.baseline,
+    odds,
+    erosionRisk,
+    organicMatter,
+    ndviAnomaly,
+  });
+  const resilienceScore = resilience.score;
 
   // Confidence and caveats grounded in SMAP documentation.
   const caveats: string[] = [
@@ -462,6 +465,7 @@ export function buildFieldAnalysis(input: AnalysisInputs): FieldAnalysis {
       openet: input.extras?.openet ?? null,
     },
     resilienceScore: land.farmable ? Math.max(0, Math.min(100, resilienceScore)) : null,
+    resilienceParts: land.farmable ? resilience.parts : [],
     landStatus: land,
     confidence,
     caveats,
@@ -598,4 +602,80 @@ function buildOdds(
     hotYears: { count: complete.filter((y) => y.heat >= 10).length, of: complete.length },
     lateFrostYears: { count: complete.filter((y) => y.lateFrost).length, of: complete.length },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Resilience score                                                     */
+/* ------------------------------------------------------------------ */
+
+export interface ResilienceInputs {
+  rootAnomaly: number | null; // % vs earlier years
+  rootWetness: number | null; // 0–1
+  rainAnomaly: number | null; // %
+  heatDays: number | null;
+  heatBaseline: number | null;
+  odds: SeasonOdds;
+  erosionRisk: RiskLevel;
+  organicMatter: number | null; // %
+  ndviAnomaly: number | null; // %
+}
+
+/**
+ * Each factor gets a health mark from 0 (worst) to 100 (no concern):
+ *
+ *   This year vs normal (70%)
+ *     water now     25%  100 − 3 × (% the soil is drier than normal); rain anomaly if soil data is missing
+ *     heat now      15%  100 − 2 × (hot days above the usual number)
+ *     soil          15%  organic matter: ≥ 3% → 100, 2–3% → 75, 1.5–2% → 55, < 1.5% → 35
+ *     vegetation    10%  greenness vs the same weeks in earlier years
+ *     erosion       10%  low → 100, moderate → 65, high → 30
+ *   Risk of the place (30%)
+ *     drought risk  15%  100 − 50 × (share of recent growing seasons that were dry)
+ *     heat risk     10%  100 − 50 × (share of recent years with 10+ hot days)
+ *
+ * The score is the weighted average of the marks that have data.
+ */
+export function resilienceScoreFrom(input: ResilienceInputs) {
+  const parts: ResiliencePart[] = [];
+  const add = (id: ResiliencePart["id"], label: string, weight: number, mark: number | null) => {
+    if (mark !== null) parts.push({ id, label, weight, mark: Math.round(clamp(mark, 0, 100)) });
+  };
+
+  // Water now
+  let water: number | null = null;
+  if (input.rootAnomaly !== null) water = 100 - 3 * Math.max(0, -input.rootAnomaly);
+  else if (input.rainAnomaly !== null) water = 100 - 1.5 * Math.max(0, -input.rainAnomaly);
+  // A very dry root zone is a concern even if it is "normal" for the place.
+  if (water !== null && input.rootWetness !== null && input.rootWetness < 0.25) water = Math.min(water, 50);
+  add("water", "Water this year", 25, water);
+
+  // Heat now
+  add(
+    "heat",
+    "Heat this year",
+    15,
+    input.heatDays !== null && input.heatBaseline !== null
+      ? 100 - 2 * Math.max(0, input.heatDays - input.heatBaseline)
+      : null,
+  );
+
+  // Soil
+  const om = input.organicMatter;
+  add("soil", "Soil organic matter", 15, om === null ? null : om >= 3 ? 100 : om >= 2 ? 75 : om >= 1.5 ? 55 : 35);
+
+  // Vegetation
+  const nd = input.ndviAnomaly;
+  add("vegetation", "Vegetation", 10, nd === null ? null : nd >= -3 ? 100 : nd >= -10 ? 70 : 40);
+
+  // Erosion
+  add("erosion", "Erosion", 10, { low: 100, moderate: 65, high: 30 }[input.erosionRisk]);
+
+  // Long-term risk of the place
+  const { dryGrowingSeasons: dry, hotYears: hot } = input.odds;
+  add("droughtRisk", "Drought risk of the area", 15, dry.of > 0 ? 100 - 50 * (dry.count / dry.of) : null);
+  add("heatRisk", "Heat risk of the area", 10, hot.of > 0 ? 100 - 50 * (hot.count / hot.of) : null);
+
+  const totalWeight = parts.reduce((sum, p) => sum + p.weight, 0);
+  const score = totalWeight ? Math.round(parts.reduce((sum, p) => sum + p.weight * p.mark, 0) / totalWeight) : 0;
+  return { score, parts };
 }
