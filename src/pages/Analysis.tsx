@@ -762,80 +762,100 @@ export default function Analysis() {
           </div>
         </section>
 
-        <section className="layer-bar" aria-label="Data shown">
-          {LAYERS.map((layer) => {
-            const active = layers.includes(layer.id);
-            const state = ready(layer.id);
-            return (
-              <button
-                key={layer.id}
-                type="button"
-                className={`layer-chip ${active ? "active" : ""} ${state}`}
-                onClick={() => toggleLayer(layer.id)}
-                aria-pressed={active}
-                title={state === "loading" ? "Loading in the background" : state === "error" ? "Not available right now" : undefined}
-              >
-                {active && <CheckCircle2 size={14} />}
-                {layer.label}
-                {state === "loading" && <RefreshCw size={12} className="spin" />}
-                {state === "error" && <AlertTriangle size={12} />}
-              </button>
-            );
-          })}
-        </section>
-
-        <section className="essentials-card">
-          <div className="essentials-score">
-            <div className="resilience-score">
-              <strong>{resilience}</strong>
-              <span>/100</span>
-            </div>
-            <div>
-              <span className="eyebrow">FIELD RESILIENCE</span>
-              <h2>{verdict}</h2>
-              <p>Last 12 months · data confidence {a.confidence}</p>
-              {a.resilienceParts.length > 0 && (
-                <details className="score-parts">
-                  <summary>What is behind this score</summary>
-                  <ul>
-                    {a.resilienceParts.map((part) => (
-                      <li key={part.id}>
-                        <span>{part.label}</span>
-                        <i className="score-part-bar">
-                          <i
-                            className={part.mark >= 75 ? "good" : part.mark >= 55 ? "watch" : "bad"}
-                            style={{ width: `${part.mark}%` }}
-                          />
-                        </i>
-                        <b>{part.mark}</b>
-                        <small>{part.weight}%</small>
-                      </li>
-                    ))}
-                  </ul>
-                  <p>
-                    Weighted average of the marks above. Missing data is left out rather than counted against the field.
-                  </p>
-                </details>
-              )}
-            </div>
+        {/* Field resilience as a folder: a tab on the top left of the card,
+            with the data selection beside it. */}
+        <div className="folder resilience-folder">
+          <div className="folder-top">
+            <span className="eyebrow folder-tab">Field resilience</span>
+            <section className="layer-bar" aria-label="Data shown">
+              {LAYERS.map((layer) => {
+                const active = layers.includes(layer.id);
+                const state = ready(layer.id);
+                return (
+                  <button
+                    key={layer.id}
+                    type="button"
+                    className={`layer-chip ${active ? "active" : ""} ${state}`}
+                    onClick={() => toggleLayer(layer.id)}
+                    aria-pressed={active}
+                    title={state === "loading" ? "Loading in the background" : state === "error" ? "Not available right now" : undefined}
+                  >
+                    {active && <CheckCircle2 size={14} />}
+                    {layer.label}
+                    {state === "loading" && <RefreshCw size={12} className="spin" />}
+                    {state === "error" && <AlertTriangle size={12} />}
+                  </button>
+                );
+              })}
+            </section>
           </div>
 
-          <ul className="findings">
-            {findings.map((f) => (
-              <li key={f.id} className={`finding ${f.tone === "loading" || f.tone === "missing" ? "pending" : ""}`}>
-                <div>
-                  <strong>{f.title}</strong>
-                  <span>{f.text}</span>
-                </div>
-                {f.tone === "loading" && <RefreshCw size={14} className="spin finding-status" />}
-              </li>
-            ))}
-          </ul>
-        </section>
+          <section className="essentials-card">
+            <div className="essentials-score">
+              <div className="resilience-score">
+                <strong>{resilience}</strong>
+                <span>/100</span>
+              </div>
+              <div>
+                <h2>{verdict}</h2>
+                <p>Last 12 months · data confidence {a.confidence}</p>
+                {a.resilienceParts.length > 0 && (
+                  <details className="score-parts">
+                    <summary>What is behind this score</summary>
+                    <ul>
+                      {a.resilienceParts.map((part) => (
+                        <li key={part.id}>
+                          <span>{part.label}</span>
+                          <i className="score-part-bar">
+                            <i
+                              className={part.mark >= 75 ? "good" : part.mark >= 55 ? "watch" : "bad"}
+                              style={{ width: `${part.mark}%` }}
+                            />
+                          </i>
+                          <b>{part.mark}</b>
+                          <small>{part.weight}%</small>
+                        </li>
+                      ))}
+                    </ul>
+                    <p>
+                      Weighted average of the marks above. Missing data is left out rather than counted against the field.
+                    </p>
+                  </details>
+                )}
+              </div>
+            </div>
+
+            <ul className="findings">
+              {findings.map((f) =>
+                f.tone === "loading" || f.tone === "missing" ? (
+                  <li key={f.id} className="finding pending">
+                    <strong>{f.title}</strong>
+                    {f.tone === "loading" ? (
+                      <RefreshCw size={14} className="spin finding-status" aria-label="Loading" />
+                    ) : (
+                      <small className="finding-status">Not available</small>
+                    )}
+                  </li>
+                ) : (
+                  // The explanation stays folded away behind a small arrow.
+                  <li key={f.id} className="finding">
+                    <details>
+                      <summary>
+                        <strong>{f.title}</strong>
+                        <ChevronDown size={16} className="finding-chevron" aria-hidden="true" />
+                      </summary>
+                      <p>{f.text}</p>
+                    </details>
+                  </li>
+                ),
+              )}
+            </ul>
+          </section>
+        </div>
 
         {cardsFor(layers).length > 0 && (
           <section className="measurements-card" aria-label="Measurements">
-            <span className="eyebrow">LAST 12 MONTHS</span>
+            <span className="eyebrow">Last 12 months</span>
             <div className="metric-grid">
               {cardsFor(layers)}
             </div>
@@ -848,39 +868,41 @@ export default function Analysis() {
         )}
 
         {top && (
-          <section className="suggestion-card">
-            <div>
-              <span className="eyebrow">SUGGESTED ROTATION</span>
-              <h2>{top.name}</h2>
-              {current && current.score < top.score && (
-                <p>
-                  {top.score}/100 against {current.score}/100 for {current.assumed ? "the typical local rotation" : "your current rotation"}.
-                </p>
-              )}
-              <ul className="suggestion-crops">
-                {cropSchedule(top.calendar).map((crop, i) => (
-                  <li key={`${crop.name}-${i}`}>
-                    <b>{crop.name}</b>
-                    <span>{crop.wholeYear ? "All year" : `Plant ${crop.plant} · harvest ${crop.harvest}`}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="suggestion-side">
-              <div className="rotation-score">
+          // A folder like the field resilience card: the score sits in the tab.
+          <div className="folder rotation-folder">
+            <div className="folder-top">
+              <div className="folder-tab rotation-score" aria-label={`Score ${top.score} out of 100`}>
                 <strong>{top.score}</strong>
                 <span>/100</span>
               </div>
-              <button type="button" className="primary-button" onClick={() => openFaq("rotations")}>
-                Compare all options <ArrowRight size={16} />
-              </button>
+              <span className="folder-caption">Suggested rotation</span>
             </div>
-          </section>
+            <section className="suggestion-card">
+              <div className="suggestion-head">
+                <h2>{top.name}</h2>
+              </div>
+              <ol className="suggestion-crops">
+                {cropSchedule(top.calendar).map((crop, i) => (
+                  <li key={`${crop.name}-${i}`}>
+                    <b>{crop.name}</b>
+                    {crop.wholeYear ? (
+                      <span>All year</span>
+                    ) : (
+                      <span>
+                        Plant {crop.plant}
+                        <br />
+                        Harvest {crop.harvest}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          </div>
         )}
 
         <section className="faq-section">
           <div className="faq-heading">
-            <span className="eyebrow">MORE DETAIL</span>
             <h2>Questions you might have</h2>
           </div>
           <Accordion items={faqItems} open={open} onToggle={toggleFaq} />
@@ -1036,8 +1058,8 @@ function Outlook({ a, onApply }: { a: FieldAnalysis; onApply: () => void }) {
 
       {p && (
         <div className="cmip-card">
+          <span className="eyebrow">Longer term</span>
           <div>
-            <span className="eyebrow">LONGER TERM</span>
             <h3>
               By {p.future}: about {signed(p.deltaT)} °C and {signed(p.rainPct)}% rain
             </h3>

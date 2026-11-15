@@ -175,10 +175,6 @@ body:has(.analysis-page)::before {
   color: var(--text);
 }
 
-.rotation-score strong {
-  font-size: 28px;
-}
-
 .resilience-score span,
 .rotation-score span {
   color: var(--text-muted);
@@ -195,9 +191,6 @@ body:has(.analysis-page)::before {
 }
 
 .finding {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
@@ -207,24 +200,62 @@ body:has(.analysis-page)::before {
   padding-bottom: 0;
 }
 
-.finding > div {
-  flex: 1;
-}
-
+/* The finding itself ("Soil is wetter than usual") is the headline */
 .finding strong {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 14px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
-.finding span {
+/* Its explanation is folded away behind a small arrow */
+.finding summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.finding summary::-webkit-details-marker {
+  display: none;
+}
+
+.finding-chevron {
+  flex: none;
+  color: var(--text-muted);
+  opacity: 0.6;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.finding summary:hover .finding-chevron,
+.finding summary:focus-visible .finding-chevron {
+  opacity: 1;
+}
+
+.finding details[open] .finding-chevron {
+  transform: rotate(180deg);
+}
+
+.finding details p {
+  margin: 6px 0 0;
   color: var(--text-soft);
   font-size: 13px;
   line-height: 1.5;
 }
 
 .finding.pending {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   opacity: .6;
+}
+
+.finding.pending small {
+  font-size: 12px;
 }
 
 .finding-status {
@@ -232,55 +263,37 @@ body:has(.analysis-page)::before {
   color: var(--text-muted);
 }
 
-/* SUGGESTION */
-
-.suggestion-card {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.suggestion-card h2 {
-  margin: 2px 0 6px;
-  font-size: clamp(19px, 2.2vw, 24px);
-}
-
-.suggestion-card p {
-  margin: 0 0 12px;
-  color: var(--text-muted);
-  font-size: 13px;
-}
+/* SUGGESTION
+   Same layout as the field resilience card: score on the left, name and a
+   short comparison beside it; the crops follow as a row of steps. */
 
 .suggestion-crops {
-  margin: 0;
-  padding: 0;
-  list-style: none;
   display: grid;
-  gap: 4px;
-  font-size: 13px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 16px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
 }
 
 .suggestion-crops li {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 12px;
+  border-left: 2px solid var(--green-light);
 }
 
 .suggestion-crops b {
-  min-width: 160px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .suggestion-crops span {
   color: var(--text-soft);
-}
-
-.suggestion-side {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 /* MORE DETAIL */
@@ -730,7 +743,6 @@ body:has(.analysis-page)::before {
 /* MEASUREMENTS */
 
 .measurements-card .eyebrow {
-  display: block;
   margin-bottom: 12px;
 }
 
@@ -1119,6 +1131,91 @@ body:has(.analysis-page)::before {
   to { transform: rotate(360deg); }
 }
 
+/* FOLDER CARDS (field resilience, suggested rotation)
+   The card has a tab on its top left like a folder; whatever sits beside the
+   tab (the data selection chips, or a caption) lines up with it. */
+
+.folder-top {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.folder-tab,
+.analysis-page .eyebrow.folder-tab {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  align-self: flex-end;
+  margin: 0 0 -1px; /* sits over the card's top border so tab and card join */
+  padding: 12px 22px 11px;
+  text-align: left;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+}
+
+.folder > section {
+  border-top-left-radius: 0;
+}
+
+.folder-top .layer-bar {
+  flex: 1;
+  align-self: center;
+  padding-bottom: 1px;
+}
+
+/* Suggested rotation: the score is the tab, the title a caption beside it */
+.rotation-folder {
+  margin-top: 16px; /* more room above, so the tab doesn't crowd the card above */
+}
+
+.folder-tab.rotation-score {
+  padding: 6px 22px 8px;
+}
+
+/* The score is the one thing in this card that should jump out */
+.folder-tab.rotation-score strong {
+  color: var(--green);
+  font-size: 44px;
+}
+
+.folder-caption {
+  align-self: center;
+  color: var(--text);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 16px;
+}
+
+.suggestion-head {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.suggestion-head h2 {
+  margin: 0;
+  font-size: clamp(19px, 2.2vw, 24px);
+}
+
+@media (max-width: 640px) {
+  /* Narrow screens: the chips go above, the tab stays joined to the card
+     (the rotation caption is short enough to stay beside its tab) */
+  .resilience-folder .folder-top {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .folder-top .layer-bar {
+    align-self: stretch;
+  }
+
+  .analysis-page .eyebrow.folder-tab {
+    align-self: flex-start;
+  }
+}
+
 /* SMALL SCREENS */
 
 @media (max-width: 760px) {
@@ -1135,18 +1232,9 @@ body:has(.analysis-page)::before {
   }
 
   .essentials-score,
-  .suggestion-card,
   .cmip-card {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .suggestion-side {
-    align-items: flex-start;
-  }
-
-  .suggestion-crops b {
-    min-width: 120px;
   }
 
   .rotation-columns,
@@ -1428,4 +1516,71 @@ html[data-theme="dark"] .metric-number.tone-bad { color: #f39a83; }
   .score-parts li small {
     display: none;
   }
+}
+
+/* SECTION LABELS
+   Same type as the panel titles in the field map's right-hand island
+   (Plus Jakarta Sans, regular, normal case), a little larger here. */
+
+.analysis-page .eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-optical-sizing: auto;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/* Centred at the top of each card. Some cards lay their content out in a row,
+   so the label takes the full first line there. */
+.analysis-page .eyebrow {
+  flex: 1 0 100%;
+  align-self: stretch;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.cmip-card {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+.faq-heading {
+  text-align: center;
+}
+
+html[data-theme="dark"] .folder-caption,
+html[data-theme="dark"] .analysis-page .eyebrow {
+  color: #ffffff;
+}
+
+/* HEADINGS
+   Same font as the buttons on the field map page (the page's base font)
+   instead of the global serif. */
+
+.analysis-page h1,
+.analysis-page h2,
+.analysis-page h3,
+.analysis-page h4 {
+  font-family: inherit;
+  letter-spacing: -0.01em;
+}
+
+/* CENTRED CROP STEPS (suggested rotation)
+   Trial layout: each crop step is centred, with thin dividers between steps
+   instead of the green line on the left. Delete this block to go back. */
+
+.suggestion-crops li {
+  align-items: center;
+  padding: 0 12px;
+  text-align: center;
+  border-left: 0;
+}
+
+.suggestion-crops li + li {
+  border-left: 1px solid var(--border);
 }
