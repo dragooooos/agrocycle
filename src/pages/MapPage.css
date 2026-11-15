@@ -369,12 +369,6 @@ html[data-theme="dark"] .map-overlay {
   background: rgba(5, 20, 13, 0.9);
 }
 
-/* LEAFLET */
-
-.leaflet-control-zoom a {
-  color: #173b2c !important;
-}
-
 /* RESPONSIVE */
 
 @media (max-width: 700px) {
@@ -685,11 +679,6 @@ html[data-theme="dark"] .map-overlay {
   font-size: 9px;
 }
 
-.fullscreen-map .leaflet-top .leaflet-control-zoom {
-  margin-left: 18px;
-  margin-top: 18px;
-}
-
 /* SELECTION TOOLS (left side, mirrors the right-hand island) */
 
 .map-tools {
@@ -759,7 +748,7 @@ html[data-theme="dark"] .map-overlay {
   transform: none;
 }
 
-.map-tool-clear:disabled {
+.map-tool:disabled {
   color: var(--text-muted);
   opacity: 0.45;
   cursor: default;
@@ -854,20 +843,8 @@ html[data-theme="dark"] .location-button:hover {
 
 /* Leaflet controls are outside our React theme variables, so style them explicitly. */
 
-html[data-theme="dark"] .leaflet-control-zoom,
 html[data-theme="dark"] .leaflet-control-layers {
   filter: brightness(0.88) saturate(0.85);
-}
-
-html[data-theme="dark"] .leaflet-control-zoom a {
-  color: #e8f6ed !important;
-  background: #10251b !important;
-  border-color: #31503f !important;
-}
-
-html[data-theme="dark"] .leaflet-control-zoom a:hover {
-  background: #183829 !important;
-  color: #baf2ce !important;
 }
 
 html[data-theme="dark"] .leaflet-control-attribution {
@@ -946,16 +923,10 @@ html[data-theme="dark"] .mini-priority.active {
   border-color: rgba(114, 212, 154, 0.36) !important;
 }
 
-html[data-theme="dark"] .leaflet-control-zoom,
-html[data-theme="dark"] .leaflet-control-zoom a,
 html[data-theme="dark"] .leaflet-control-attribution {
   background: #0d1d15 !important;
   color: #d7e9de !important;
   border-color: rgba(181, 224, 199, 0.18) !important;
-}
-
-html[data-theme="dark"] .leaflet-control-zoom a {
-  color: #d7e9de !important;
 }
 
 html[data-theme="dark"] .leaflet-control-attribution a {
