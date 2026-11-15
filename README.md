@@ -12,7 +12,7 @@
 
 Pick a point or draw a field anywhere on Earth. AgroCycle checks how the field is doing this year against earlier years and compares crop rotations, your current one included. Every suggestion says why it was picked, what backs it up, its risks and what is still unknown. The farmer makes the final call.
 
-**Contents:** [Features](#features) · [Quick start](#quick-start) · [Configuration](#configuration) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Data sources](#data-sources) · [Scores](#scores) · [FAQ](#faq) · [Project structure](#project-structure) · [Limitations](#limitations) · [Credits](#credits)
+**Contents:** [Features](#features) · [Quick start](#quick-start) · [Configuration](#configuration) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Data sources](#data-sources) · [Scores](#scores) · [FAQ](#faq) · [Project structure](#project-structure) · [Limitations](#limitations) · [AI assistance](#ai-assistance) · [Credits](#credits)
 
 ---
 
@@ -273,6 +273,18 @@ vite.config.ts    proxy that keeps the API keys on the server
 - The daily record starts in 2015, so trends rest on about 10 years.
 - Prices, pests, varieties and machinery are not modelled. Each rotation lists what it cannot see.
 - The NASS/OpenET proxy runs only with `npm run dev` or `npm run preview`. A static host needs an equivalent serverless function.
+
+---
+
+## AI assistance
+
+AI tools were used while building AgroCycle. We mainly used [Claude](https://claude.ai) (Anthropic) to:
+
+- write and refactor code: data fetching, the analysis and rotation logic, the user interface and the PDF report;
+- find and fix bugs;
+- write the documentation, including this README.
+
+The team chose the approach, the data sources and the scoring rules. AI suggestions were reviewed and tested before they were kept.
 
 ---
 
