@@ -20,7 +20,7 @@ import {
 import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
-import MetricCard from "../components/MetricCard";
+import MetricCard, { type MetricTone } from "../components/MetricCard";
 import RotationCard, { cropSchedule } from "../components/RotationCard";
 import { yearComparison } from "../utils/yearComparison";
 import Accordion, { type AccordionItem } from "../components/Accordion";
@@ -442,9 +442,29 @@ export default function Analysis() {
   const verdict =
     resilience >= 75
       ? "Your field is in good shape overall."
-      : resilience >= 50
+      : resilience >= 55
         ? "Your field shows some pressure worth watching."
         : "Your field is under significant pressure.";
+
+  // Colour rules for the "Last 12 months" values (green = fine, yellow = watch, red = concern).
+  const toneBy = (bad: boolean, watch: boolean): MetricTone => (bad ? "bad" : watch ? "watch" : "good");
+  const soilA = a.water.rootZoneAnomaly ?? 0;
+  const rainA = a.water.rainfallAnomaly ?? 0;
+  const tempA = a.climate.temperatureAnomaly ?? 0;
+  const extraHeat = (a.climate.heatStressDays ?? 0) - (a.climate.heatStressBaseline ?? a.climate.heatStressDays ?? 0);
+  const extraFrost = (a.climate.frostDays ?? 0) - (a.climate.frostBaseline ?? a.climate.frostDays ?? 0);
+  const om = a.soil.organicMatter;
+  const tones = {
+    moisture: toneBy(soilA <= -10 || (a.water.rootZoneWetness ?? 1) < 0.3, soilA <= -4 || (a.water.rootZoneWetness ?? 1) < 0.4),
+    rain: toneBy(rainA <= -15, rainA <= -5 || rainA >= 40),
+    balance: toneBy(a.water.waterStress >= 55, a.water.waterStress >= 35),
+    temp: toneBy(tempA >= 1.5, tempA >= 0.8 || tempA <= -1.5),
+    heat: toneBy(extraHeat >= 15, extraHeat >= 5),
+    frost: toneBy(extraFrost >= 20, extraFrost >= 8),
+    ndvi: toneBy(a.vegetation.vegetationStress === "high", a.vegetation.vegetationStress === "moderate"),
+    erosion: toneBy(a.soil.erosionRisk === "high", a.soil.erosionRisk === "moderate"),
+    soil: om === null ? undefined : toneBy(om < 1.5, om < 2.5),
+  };
 
   const cardsFor = (layerSet: LayerId[]) => {
     const cards: ReactNode[] = [];
@@ -452,6 +472,7 @@ export default function Analysis() {
       cards.push(
         <MetricCard
           key="moisture"
+          tone={tones.moisture}
           icon={Droplets}
           label="Soil moisture"
           value={pct(a.water.rootZoneWetness)}
@@ -463,6 +484,7 @@ export default function Analysis() {
       cards.push(
         <MetricCard
           key="rain"
+          tone={tones.rain}
           icon={CloudRain}
           label="Rainfall"
           value={show(a.water.rainfall, " mm")}
@@ -471,6 +493,7 @@ export default function Analysis() {
         />,
         <MetricCard
           key="balance"
+          tone={tones.balance}
           icon={Droplets}
           label="Water balance"
           value={show(a.water.waterBalance, " mm")}
@@ -481,6 +504,7 @@ export default function Analysis() {
       cards.push(
         <MetricCard
           key="temp"
+          tone={tones.temp}
           icon={Thermometer}
           label="Mean temperature"
           value={show(a.climate.meanTemperature, "°C")}
@@ -490,6 +514,7 @@ export default function Analysis() {
         />,
         <MetricCard
           key="heat"
+          tone={tones.heat}
           icon={Flame}
           label={`Days above ${THRESHOLDS.heatDayC} °C`}
           value={show(a.climate.heatStressDays, " days")}
@@ -497,6 +522,7 @@ export default function Analysis() {
         />,
         <MetricCard
           key="frost"
+          tone={tones.frost}
           icon={Snowflake}
           label="Frost days"
           value={show(a.climate.frostDays, " days")}
@@ -507,6 +533,7 @@ export default function Analysis() {
       cards.push(
         <MetricCard
           key="ndvi"
+          tone={tones.ndvi}
           icon={Leaf}
           label="Vegetation greenness"
           value={show(a.vegetation.ndvi)}
@@ -518,6 +545,7 @@ export default function Analysis() {
       cards.push(
         <MetricCard
           key="erosion"
+          tone={tones.erosion}
           icon={Mountain}
           label="Erosion risk"
           value={a.soil.erosionRisk}
@@ -528,6 +556,7 @@ export default function Analysis() {
       cards.push(
         <MetricCard
           key="soil"
+          tone={tones.soil}
           icon={Sprout}
           label="Soil"
           value={a.soil.soilType ?? "—"}
@@ -797,6 +826,29 @@ export default function Analysis() {
               <span className="eyebrow">FIELD RESILIENCE</span>
               <h2>{verdict}</h2>
               <p>Last 12 months · data confidence {a.confidence}</p>
+              {a.resilienceParts.length > 0 && (
+                <details className="score-parts">
+                  <summary>What is behind this score</summary>
+                  <ul>
+                    {a.resilienceParts.map((part) => (
+                      <li key={part.id}>
+                        <span>{part.label}</span>
+                        <i className="score-part-bar">
+                          <i
+                            className={part.mark >= 75 ? "good" : part.mark >= 55 ? "watch" : "bad"}
+                            style={{ width: `${part.mark}%` }}
+                          />
+                        </i>
+                        <b>{part.mark}</b>
+                        <small>{part.weight}%</small>
+                      </li>
+                    ))}
+                  </ul>
+                  <p>
+                    Weighted average of the marks above. Missing data is left out rather than counted against the field.
+                  </p>
+                </details>
+              )}
             </div>
           </div>
 
@@ -823,6 +875,7 @@ export default function Analysis() {
                   icon={Droplets}
                   label="Groundwater depth"
                   value={`${a.extras.groundwater.latestDepthM} m`}
+                  tone={toneBy(a.extras.groundwater.trendMPerDecade > 0.5, a.extras.groundwater.trendMPerDecade > 0.1)}
                   description={`Nearest well, ${a.extras.groundwater.distanceKm} km`}
                 />
               )}

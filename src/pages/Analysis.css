@@ -1328,3 +1328,86 @@ body:has(.analysis-page)::before {
     grid-column: 1 / -1;
   }
 }
+
+/* COLOURED VALUES (Last 12 months) - only the number is coloured */
+
+.metric-number.tone-good { color: #2e9d4f; }
+.metric-number.tone-watch { color: #b8860b; }
+.metric-number.tone-bad { color: #d4472c; }
+
+html[data-theme="dark"] .metric-number.tone-good { color: #7ed69a; }
+html[data-theme="dark"] .metric-number.tone-watch { color: #f2cf6b; }
+html[data-theme="dark"] .metric-number.tone-bad { color: #f39a83; }
+
+/* SCORE BREAKDOWN */
+
+.score-parts {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.score-parts summary {
+  color: var(--green-dark);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.score-parts ul {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.score-parts li {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 120px 28px 32px;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-soft);
+}
+
+.score-part-bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.score-part-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.score-part-bar i.good { background: #4caf6a; }
+.score-part-bar i.watch { background: #e0b43c; }
+.score-part-bar i.bad { background: #d9694a; }
+
+.score-parts li b {
+  color: var(--text);
+  text-align: right;
+}
+
+.score-parts li small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.score-parts p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .score-parts li {
+    grid-template-columns: 1fr 70px 28px;
+  }
+
+  .score-parts li small {
+    display: none;
+  }
+}

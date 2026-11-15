@@ -8,9 +8,15 @@ interface MetricCardProps {
   trend?: number | null;
   /** Text shown for the change instead of the default "n%". */
   trendText?: string;
+  /** Colours the value: green = fine, yellow = watch, red = concern. */
+  tone?: MetricTone;
 }
 
-export default function MetricCard({ icon: Icon, label, value, description, trend, trendText }: MetricCardProps) {
+export type MetricTone = "good" | "watch" | "bad";
+
+const TONE_LABEL: Record<MetricTone, string> = { good: "fine", watch: "worth watching", bad: "concern" };
+
+export default function MetricCard({ icon: Icon, label, value, description, trend, trendText, tone }: MetricCardProps) {
   const change =
     trend === undefined || trend === null
       ? null
@@ -20,7 +26,13 @@ export default function MetricCard({ icon: Icon, label, value, description, tren
       <div className="metric-label">{label}</div>
       <div className="metric-value">
         <Icon className="metric-icon" aria-hidden="true" />
-        {value}
+        {tone ? (
+          <span className={`metric-number tone-${tone}`} title={TONE_LABEL[tone]}>
+            {value}
+          </span>
+        ) : (
+          value
+        )}
       </div>
       <div className="metric-description">
         {description}
