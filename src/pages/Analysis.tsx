@@ -31,6 +31,7 @@ import Accordion, { type AccordionItem } from "../components/Accordion";
 import { LAYERS, readLayers, saveLayers, sourcesFor } from "../data/layers";
 import { marketScore } from "../data/markets";
 import { useFieldSources } from "../services/useFieldSources";
+import { readSelection } from "../services/selection";
 import { SOURCE_INFO, sourceStatuses, type SourceState } from "../services/sourceStore";
 import type { NdviResult, PlaceResult, PowerDaily, SoilProfile, SsurgoResult, TerrainResult } from "../services/nasaData";
 import type {
@@ -47,7 +48,6 @@ import { buildClimate, monthRange, type Scenario } from "../utils/cropSuitabilit
 import type {
   FarmerConstraints,
   FieldAnalysis,
-  FieldSelection,
   LayerId,
   PriorityId,
   SourceId,
@@ -209,7 +209,7 @@ function buildFindings(
 
 export default function Analysis() {
   const navigate = useNavigate();
-  const field = readJson<FieldSelection | null>("farmrotate:field", null);
+  const field = readSelection();
   const priorities = readJson<PriorityId[]>("farmrotate:priorities", []);
   const farmerNote = sessionStorage.getItem("farmrotate:note") || "";
   const constraints = readJson<FarmerConstraints>("farmrotate:constraints", {

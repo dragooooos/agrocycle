@@ -25,13 +25,14 @@ import {
   TrendingDown,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MapView from "../components/MapView";
 import type { AreaUnit, FarmerConstraints, FieldSelection, IndicatorId, PriorityId } from "../types";
 import { CROP_BY_ID, SELECTABLE_CROPS } from "../data/crops";
 import { readIndicators } from "../data/layers";
-import { startSource } from "../services/sourceStore";
+import { getSourceState, startSource } from "../services/sourceStore";
+import { readSelection, saveSelection } from "../services/selection";
 
 const readConstraints = (): FarmerConstraints => {
   try {
@@ -41,6 +42,28 @@ const readConstraints = (): FarmerConstraints => {
     // ignore
   }
   return { irrigation: false, livestock: false, currentCrops: [] };
+};
+
+/** Saved priorities for this tab, keeping only known ones. */
+const readPriorities = (): PriorityId[] => {
+  try {
+    const raw = sessionStorage.getItem("farmrotate:priorities");
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) {
+      return parsed.filter((id): id is PriorityId => priorityOptions.some((option) => option.id === id));
+    }
+  } catch {
+    // ignore: fall back to the defaults
+  }
+  return ["water", "soil"];
+};
+
+const saveJson = (key: string, value: unknown) => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage unavailable: the choice still works on this page.
+  }
 };
 
 const priorityOptions: {
@@ -94,7 +117,14 @@ type PanelId = "location" | "priorities" | "indicators" | "farm";
 
 export default function MapPage() {
   const navigate = useNavigate();
-  const [field, setField] = useState<FieldSelection | null>(null);
+  // The selection survives a trip to the analysis page and back (see services/selection.ts).
+  const [field, setField] = useState<FieldSelection | null>(readSelection);
+  const [initialSelection] = useState(field);
+  const clearSelection = useCallback(() => setField(null), []);
+
+  useEffect(() => {
+    saveSelection(field);
+  }, [field]);
   const [showContinueHint, setShowContinueHint] = useState(false);
 
   // The first time someone selects a location, point at the continue button once.
@@ -112,10 +142,7 @@ export default function MapPage() {
     return () => clearTimeout(timer);
   }, [field]);
   const [unit] = useState<AreaUnit>("ha");
-  const [priorities, setPriorities] = useState<PriorityId[]>([
-    "water",
-    "soil",
-  ]);
+  const [priorities, setPriorities] = useState<PriorityId[]>(readPriorities);
 
   const [locationSlot, setLocationSlot] = useState<HTMLDivElement | null>(null);
   const [openPanel, setOpenPanel] = useState<PanelId | null>("location");
@@ -137,9 +164,17 @@ export default function MapPage() {
   // Start the soil lookup as soon as a point is chosen; the analysis page reuses this result.
   useEffect(() => {
     if (!field) return;
+    // The restored selection from before the analysis page: don't ask again for a
+    // soil check that already failed there (Retry on the analysis page does that).
+    if (field === initialSelection && getSourceState("soil", field.latitude, field.longitude).status === "error") return;
     startSource("soil", field.latitude, field.longitude);
-  }, [field]);
+  }, [field, initialSelection]);
   const [constraints, setConstraints] = useState<FarmerConstraints>(readConstraints);
+
+  // Keep the panel choices too, so the whole map page comes back as it was left.
+  useEffect(() => saveJson("farmrotate:priorities", priorities), [priorities]);
+  useEffect(() => saveJson("farmrotate:indicators", indicators), [indicators]);
+  useEffect(() => saveJson("farmrotate:constraints", constraints), [constraints]);
 
   const addCrop = (id: string) => {
     if (!id) return;
@@ -180,21 +215,24 @@ export default function MapPage() {
   const analyze = () => {
     if (!field) return;
 
-    sessionStorage.setItem(
-      "farmrotate:field",
-      JSON.stringify({ ...field, areaUnit: unit }),
-    );
-    sessionStorage.setItem("farmrotate:priorities", JSON.stringify(priorities));
-    sessionStorage.setItem("farmrotate:indicators", JSON.stringify(indicators));
-    sessionStorage.setItem("farmrotate:constraints", JSON.stringify(constraints));
-    sessionStorage.setItem("farmrotate:note", "");
+    saveSelection({ ...field, areaUnit: unit });
+    try {
+      sessionStorage.setItem("farmrotate:note", ""); // plain text, read as-is by the analysis page
+    } catch {
+      // ignore
+    }
     navigate("/analysis");
   };
 
   return (
     <div className="map-page-shell">
       <main className="map-page">
-        <MapView onFieldSelected={setField} coordinatesContainer={locationSlot} />
+        <MapView
+          onFieldSelected={setField}
+          onSelectionCleared={clearSelection}
+          initialSelection={initialSelection}
+          coordinatesContainer={locationSlot}
+        />
 
         <div className="map-island-dock">
           {openPanel === "location" && (

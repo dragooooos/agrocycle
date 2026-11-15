@@ -375,10 +375,6 @@ html[data-theme="dark"] .map-overlay {
   color: #173b2c !important;
 }
 
-.leaflet-pm-toolbar .leaflet-buttons-control-button {
-  background: white !important;
-}
-
 /* RESPONSIVE */
 
 @media (max-width: 700px) {
@@ -689,13 +685,116 @@ html[data-theme="dark"] .map-overlay {
   font-size: 9px;
 }
 
-.fullscreen-map .leaflet-control-zoom {
+.fullscreen-map .leaflet-top .leaflet-control-zoom {
   margin-left: 18px;
   margin-top: 18px;
 }
 
-.fullscreen-map .leaflet-control-geoman {
-  margin-left: 18px;
+/* SELECTION TOOLS (left side, mirrors the right-hand island) */
+
+.map-tools {
+  position: absolute;
+  top: 50%;
+  left: 18px;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.map-tools-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(248, 252, 249, 0.94);
+  border: 1px solid rgba(32, 89, 61, 0.14);
+  border-radius: 999px;
+  box-shadow: 0 16px 45px rgba(20, 55, 38, 0.24);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+.map-tools-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-tools-divider {
+  width: 24px;
+  height: 1px;
+  margin: 3px 0;
+  background: var(--border-strong);
+}
+
+.map-tool {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--green-dark);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.map-tool:hover:not(:disabled) {
+  background: var(--green-light);
+  transform: translateX(2px);
+}
+
+.map-tool.active,
+.map-tool.active:hover {
+  color: white;
+  background: var(--green);
+  transform: none;
+}
+
+.map-tool-clear:disabled {
+  color: var(--text-muted);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.map-tools-hint {
+  max-width: 250px;
+  padding: 8px 12px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(15, 48, 33, 0.82);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.map-tools-hint strong {
+  display: block;
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.leaflet-container.map-drawing {
+  cursor: crosshair;
+}
+
+.leaflet-container.map-drawing.map-panning {
+  cursor: grabbing;
+}
+
+@media (max-width: 600px) {
+  .map-tools-hint {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -756,21 +855,17 @@ html[data-theme="dark"] .location-button:hover {
 /* Leaflet controls are outside our React theme variables, so style them explicitly. */
 
 html[data-theme="dark"] .leaflet-control-zoom,
-html[data-theme="dark"] .leaflet-control-layers,
-html[data-theme="dark"] .leaflet-pm-toolbar,
-html[data-theme="dark"] .leaflet-pm-actions-container {
+html[data-theme="dark"] .leaflet-control-layers {
   filter: brightness(0.88) saturate(0.85);
 }
 
-html[data-theme="dark"] .leaflet-control-zoom a,
-html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button {
+html[data-theme="dark"] .leaflet-control-zoom a {
   color: #e8f6ed !important;
   background: #10251b !important;
   border-color: #31503f !important;
 }
 
-html[data-theme="dark"] .leaflet-control-zoom a:hover,
-html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button:hover {
+html[data-theme="dark"] .leaflet-control-zoom a:hover {
   background: #183829 !important;
   color: #baf2ce !important;
 }
@@ -853,8 +948,6 @@ html[data-theme="dark"] .mini-priority.active {
 
 html[data-theme="dark"] .leaflet-control-zoom,
 html[data-theme="dark"] .leaflet-control-zoom a,
-html[data-theme="dark"] .leaflet-pm-toolbar,
-html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button,
 html[data-theme="dark"] .leaflet-control-attribution {
   background: #0d1d15 !important;
   color: #d7e9de !important;
@@ -863,10 +956,6 @@ html[data-theme="dark"] .leaflet-control-attribution {
 
 html[data-theme="dark"] .leaflet-control-zoom a {
   color: #d7e9de !important;
-}
-
-html[data-theme="dark"] .leaflet-pm-toolbar .leaflet-buttons-control-button {
-  filter: brightness(1.8) saturate(0.45);
 }
 
 html[data-theme="dark"] .leaflet-control-attribution a {
@@ -1264,6 +1353,30 @@ html[data-theme="dark"] .island-icon-button.active,
 html[data-theme="dark"] .island-go-button {
   color: #06120b;
   background: #82dca4;
+}
+
+html[data-theme="dark"] .map-tools-bar {
+  background: rgba(13, 29, 21, 0.95);
+  border-color: rgba(181, 224, 199, 0.18);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="dark"] .map-tool {
+  color: #cfe9d9;
+}
+
+html[data-theme="dark"] .map-tool:hover:not(:disabled) {
+  background: #173d2a;
+}
+
+html[data-theme="dark"] .map-tool.active,
+html[data-theme="dark"] .map-tool.active:hover {
+  color: #06120b;
+  background: #82dca4;
+}
+
+html[data-theme="dark"] .map-tools-hint {
+  background: rgba(5, 15, 10, 0.82);
 }
 
 html[data-theme="dark"] .island-go-button:hover:not(:disabled) {
