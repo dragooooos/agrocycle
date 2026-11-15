@@ -15,11 +15,12 @@ import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 
 import type { FieldSelection } from "../types";
 import { outlineOf } from "../services/selection";
+import { MapPin, Pentagon, Square, X } from "lucide-react";
 import CoordinatesBox from "./CoordinatesBox";
 
 interface MapViewProps {
   onFieldSelected: (selection: FieldSelection) => void;
-  /** Called when the selected field outline is deleted with the toolbar's removal tool. */
+  /** Called when the selection is cleared (the Clear button, or a new shape replacing the old one). */
   onSelectionCleared?: () => void;
   /** A saved selection to show again (point marker or editable outline), e.g. when coming back from the analysis page. */
   initialSelection?: FieldSelection | null;
@@ -109,9 +110,8 @@ function MapClickHandler({
 }) {
   useMapEvents({
     click(event) {
-      // Geoman emits map clicks while drawing. Never treat those clicks as
-      // point selections, otherwise MapController can fly the map underneath
-      // the polygon/rectangle and create a visible jump/glitch.
+      // Only the Point tool selects points; clicks made while drawing a
+      // shape are corners of that shape.
       if (disabled) return;
 
       onLocation(
@@ -137,129 +137,245 @@ function selectionFromLayer(layer: L.Polygon): FieldSelection {
   };
 }
 
+export type SelectionTool = "point" | "rectangle" | "polygon";
+
+const SHAPE_STYLE: L.PathOptions = { color: "#3388ff", weight: 3 };
+
+/**
+ * Drawing on the map for the Rectangle and Polygon tools.
+ *
+ * The chosen tool stays on: finishing a shape selects it and you can draw the
+ * next one right away, which replaces it as soon as its first corner is placed.
+ * Escape or a right-click cancels the shape being drawn (Escape with nothing in
+ * progress goes back to the Point tool). Every finished shape stays editable:
+ * drag a corner to reshape it and the area is measured again.
+ */
 function DrawingTools({
-  onFieldSelected,
-  onDrawingStateChange,
-  onSelectionCleared,
+  tool,
+  onToolChange,
+  onAreaSelected,
+  onShapeReplaced,
   initialOutline,
   selectedShape,
 }: {
-  onFieldSelected: (selection: FieldSelection) => void;
-  onDrawingStateChange: (drawing: boolean) => void;
-  onSelectionCleared?: () => void;
+  tool: SelectionTool;
+  onToolChange: (tool: SelectionTool) => void;
+  onAreaSelected: (selection: FieldSelection) => void;
+  /** The selected outline was removed because a new shape was started. */
+  onShapeReplaced: () => void;
   initialOutline: [number, number][][] | null;
-  /** The outline that is the current selection (null when a point is selected). */
+  /** The outline that is the current selection (null when a point or nothing is selected). */
   selectedShape: MutableRefObject<L.Polygon | null>;
 }) {
   const map = useMap();
   const restored = useRef(false);
 
+  // Latest callbacks, so the map listeners below don't need re-binding on every render.
+  const callbacks = useRef({ onToolChange, onAreaSelected, onShapeReplaced });
+  callbacks.current = { onToolChange, onAreaSelected, onShapeReplaced };
+
+  const selectLayer = useCallback((layer: L.Polygon) => {
+    selectedShape.current = layer;
+    callbacks.current.onAreaSelected(selectionFromLayer(layer));
+  }, [selectedShape]);
+
+  // Make the shape resizable right away: drag a corner (or a vertex of a
+  // polygon) to reshape it. Rectangles stay rectangular while resizing.
+  const makeEditable = useCallback((layer: L.Polygon) => {
+    layer.on("pm:edit", () => selectLayer(layer));
+    (layer as any).pm?.enable({ allowSelfIntersection: false });
+  }, [selectLayer]);
+
+  // Placing the first corner of a new shape removes the selected one.
+  const replaceSelectedShape = useCallback(() => {
+    const old = selectedShape.current;
+    if (!old) return;
+    selectedShape.current = null;
+    old.remove();
+    callbacks.current.onShapeReplaced();
+  }, [selectedShape]);
+
+  // Shapes finished by Geoman (the Polygon tool), and the saved outline when coming back.
   useEffect(() => {
-    const pm = (map as any).pm;
-    if (!pm) return;
-
-    pm.addControls({
-      position: "topleft",
-      drawText: false,
-      drawCircle: false,
-      drawCircleMarker: false,
-      drawMarker: false,
-      drawPolyline: false,
-      drawRectangle: true,
-      drawPolygon: true,
-      editMode: true,
-      removalMode: true,
-      rotateMode: false,
-      cutPolygon: false,
-    });
-
-    const selectLayer = (layer: L.Polygon) => {
-      selectedShape.current = layer;
-      onFieldSelected(selectionFromLayer(layer));
-    };
-
-    // Make the shape resizable right away: drag a corner (or a vertex of a
-    // polygon) to reshape it. Rectangles stay rectangular while resizing.
-    // Re-measure the area whenever the shape changes, including edits made
-    // later through the toolbar's edit tool.
-    const makeEditable = (layer: L.Polygon) => {
-      layer.on("pm:edit", () => selectLayer(layer));
-      (layer as any).pm?.enable({ allowSelfIntersection: false });
-    };
-
     const handleCreate = (event: any) => {
       const layer = event.layer;
       if (!(layer instanceof L.Polygon)) return;
-
       selectLayer(layer);
       makeEditable(layer);
     };
+    map.on("pm:create", handleCreate);
 
-    // Deleting the outline that is the current selection clears the selection.
-    const handleRemove = (event: any) => {
-      if (event.layer && event.layer === selectedShape.current) {
-        selectedShape.current = null;
-        onSelectionCleared?.();
-      }
-    };
-
-    // Coming back to the map: redraw the saved outline once, already selected and editable.
     if (initialOutline && !restored.current) {
       restored.current = true;
-      const layer = L.polygon(initialOutline).addTo(map);
+      const layer = L.polygon(initialOutline, SHAPE_STYLE).addTo(map);
       selectedShape.current = layer;
       makeEditable(layer);
     }
 
-    // Placing the first corner of a new outline replaces the selected one.
-    // (Geoman places that corner on a map click, for rectangles and polygons alike.)
-    const replaceSelectedShape = () => {
-      const old = selectedShape.current;
-      if (!old) return;
-      selectedShape.current = null;
-      map.removeLayer(old);
-      onSelectionCleared?.();
-    };
-
-    const handleDrawStart = () => {
-      onDrawingStateChange(true);
-      map.once("click", replaceSelectedShape);
-      // Explicitly disable Leaflet panning while Geoman is drawing.
-      // Geoman normally handles this, but making it explicit avoids a
-      // one-frame drag/jump on some browsers and touchpads.
-      map.dragging.disable();
-    };
-
-    const handleDrawEnd = () => {
-      map.off("click", replaceSelectedShape); // drawing cancelled before any corner was placed
-      onDrawingStateChange(false);
-      map.dragging.enable();
-    };
-
-    map.on("pm:create", handleCreate);
-    map.on("pm:remove", handleRemove);
-    map.on("pm:drawstart", handleDrawStart);
-    map.on("pm:drawend", handleDrawEnd);
-
     return () => {
       map.off("pm:create", handleCreate);
-      map.off("pm:remove", handleRemove);
-      map.off("pm:drawstart", handleDrawStart);
-      map.off("pm:drawend", handleDrawEnd);
-      map.off("click", replaceSelectedShape);
-      map.dragging.enable();
-      try {
-        pm.removeControls();
-      } catch {
-        // cleanup
-      }
     };
-    // initialOutline is only used on the first run (guarded by `restored`).
+    // initialOutline is only used once (guarded by `restored`).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, onFieldSelected, onSelectionCleared]);
+  }, [map, selectLayer, makeEditable]);
+
+  // The active tool.
+  useEffect(() => {
+    const pm = (map as any).pm;
+    const container = map.getContainer();
+    let cancelShape = () => false; // returns true if there was a shape in progress to cancel
+
+    if (tool === "polygon" && pm) {
+      const draw = pm.Draw.Polygon;
+      const firstCorner = () => map.once("click", replaceSelectedShape);
+      map.on("pm:drawstart", firstCorner);
+      pm.enableDraw("Polygon", {
+        continueDrawing: true,
+        finishOn: "dblclick",
+        allowSelfIntersection: false,
+        pathOptions: SHAPE_STYLE,
+      });
+      cancelShape = () => {
+        if (!draw._layer || draw._layer.getLatLngs().length === 0) return false;
+        pm.disableDraw();
+        pm.enableDraw("Polygon"); // start over, tool stays on
+        return true;
+      };
+      const keys = (event: KeyboardEvent) => {
+        if (isTyping(event)) return;
+        if (event.key === "Backspace" && draw._layer?.getLatLngs().length) {
+          event.preventDefault();
+          draw._removeLastVertex();
+        } else if (event.key === "Enter" && draw._layer?.getLatLngs().length > 2) {
+          draw._finishShape();
+        }
+      };
+      window.addEventListener("keydown", keys);
+      const stopPolygon = () => {
+        window.removeEventListener("keydown", keys);
+        map.off("pm:drawstart", firstCorner);
+        map.off("click", replaceSelectedShape);
+        pm.disableDraw();
+      };
+      return withCancelKeys(map, () => cancelShape(), () => callbacks.current.onToolChange("point"), stopPolygon);
+    }
+
+    if (tool === "rectangle") {
+      // Drag across the field, or click one corner and then the opposite one.
+      let phase: "idle" | "pressing" | "dragging" | "placing" = "idle";
+      let start: L.LatLng | null = null;
+      let startPoint: L.Point | null = null;
+      let preview: L.Rectangle | null = null;
+
+      map.dragging.disable();
+      map.boxZoom.disable();
+      container.classList.add("map-drawing");
+
+      const latLngOf = (event: PointerEvent) => map.mouseEventToLatLng(event as unknown as MouseEvent);
+      const reset = () => {
+        preview?.remove();
+        preview = null;
+        phase = "idle";
+        start = startPoint = null;
+      };
+      const finish = (corner: L.LatLng) => {
+        const a = map.latLngToContainerPoint(start!);
+        const b = map.latLngToContainerPoint(corner);
+        const bounds = L.latLngBounds(start!, corner);
+        reset();
+        if (Math.abs(a.x - b.x) < 6 || Math.abs(a.y - b.y) < 6) return; // too small: treat as a stray click
+        const layer = L.rectangle(bounds, SHAPE_STYLE).addTo(map);
+        selectLayer(layer);
+        makeEditable(layer);
+      };
+
+      const down = (event: PointerEvent) => {
+        if (event.button !== 0 || !isOnMap(event)) return;
+        if (phase === "placing") return; // second click: finished on release
+        event.preventDefault(); // no text selection while dragging
+        start = latLngOf(event);
+        startPoint = map.mouseEventToContainerPoint(event as unknown as MouseEvent);
+        phase = "pressing";
+        replaceSelectedShape();
+        preview = L.rectangle(L.latLngBounds(start, start), { ...SHAPE_STYLE, dashArray: "6 6", interactive: false }).addTo(map);
+        container.setPointerCapture?.(event.pointerId);
+      };
+      const move = (event: PointerEvent) => {
+        if (phase === "idle" || !start || !preview) return;
+        preview.setBounds(L.latLngBounds(start, latLngOf(event)));
+        if (phase === "pressing" && startPoint) {
+          const point = map.mouseEventToContainerPoint(event as unknown as MouseEvent);
+          if (point.distanceTo(startPoint) > 5) phase = "dragging";
+        }
+      };
+      const up = (event: PointerEvent) => {
+        if (event.button !== 0) return;
+        if (phase === "dragging" || phase === "placing") finish(latLngOf(event));
+        else if (phase === "pressing") phase = "placing"; // a click: wait for the opposite corner
+      };
+
+      container.addEventListener("pointerdown", down);
+      container.addEventListener("pointermove", move);
+      container.addEventListener("pointerup", up);
+      cancelShape = () => {
+        if (phase === "idle") return false;
+        reset();
+        return true;
+      };
+      const stopRectangle = () => {
+        container.removeEventListener("pointerdown", down);
+        container.removeEventListener("pointermove", move);
+        container.removeEventListener("pointerup", up);
+        container.classList.remove("map-drawing");
+        reset();
+        map.dragging.enable();
+        map.boxZoom.enable();
+      };
+      return withCancelKeys(map, () => cancelShape(), () => callbacks.current.onToolChange("point"), stopRectangle);
+    }
+
+    return undefined;
+  }, [map, tool, replaceSelectedShape, selectLayer, makeEditable]);
 
   return null;
 }
+
+/** Ignore shortcuts while the user is typing (e.g. in the location search box). */
+const isTyping = (event: KeyboardEvent) => {
+  const target = event.target as HTMLElement | null;
+  return !!target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+};
+
+/** True for presses on the map itself, not on its controls or on a shape's corner handles. */
+const isOnMap = (event: PointerEvent) =>
+  !(event.target as HTMLElement).closest(".leaflet-control, .leaflet-marker-icon, .leaflet-marker-pane");
+
+/**
+ * Escape and right-click cancel the shape in progress; Escape with nothing in
+ * progress switches back to the Point tool. Returns the cleanup for the tool.
+ */
+function withCancelKeys(map: L.Map, cancel: () => boolean, backToPoint: () => void, stopTool: () => void) {
+  const keydown = (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || isTyping(event)) return;
+    if (!cancel()) backToPoint();
+  };
+  const contextmenu = () => {
+    cancel();
+  };
+  window.addEventListener("keydown", keydown);
+  map.on("contextmenu", contextmenu);
+  return () => {
+    window.removeEventListener("keydown", keydown);
+    map.off("contextmenu", contextmenu);
+    stopTool();
+  };
+}
+
+const TOOLS: { id: SelectionTool; label: string; hint: string; Icon: typeof MapPin }[] = [
+  { id: "point", label: "Point", hint: "Click the map to pick a point", Icon: MapPin },
+  { id: "rectangle", label: "Rectangle", hint: "Drag across your field · Esc cancels", Icon: Square },
+  { id: "polygon", label: "Polygon", hint: "Click each corner, double-click to finish · Esc cancels", Icon: Pentagon },
+];
 
 export default function MapView({
   onFieldSelected,
@@ -282,17 +398,37 @@ export default function MapView({
     latitude: number;
     longitude: number;
   } | null>(initialSelection?.selectionType === "point" ? initialSelection : null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [tool, setTool] = useState<SelectionTool>("point");
+  const [hasSelection, setHasSelection] = useState(initialSelection !== null);
+  const activeTool = TOOLS.find((option) => option.id === tool)!;
 
-  // Starting a new shape clears the point marker left by an earlier click.
-  const handleDrawingStateChange = useCallback((drawing: boolean) => {
-    setIsDrawing(drawing);
-    if (drawing) setClickedLocation(null);
+  // A point replaces a selected outline.
+  const removeShape = useCallback(() => {
+    selectedShape.current?.remove();
+    selectedShape.current = null;
   }, []);
+
+  const handleAreaSelected = useCallback((selection: FieldSelection) => {
+    setClickedLocation(null); // an outline replaces a selected point
+    setHasSelection(true);
+    onFieldSelected(selection);
+  }, [onFieldSelected]);
+
+  const handleCleared = useCallback(() => {
+    setHasSelection(false);
+    onSelectionCleared?.();
+  }, [onSelectionCleared]);
+
+  const handleClear = useCallback(() => {
+    removeShape();
+    setClickedLocation(null);
+    handleCleared();
+  }, [removeShape, handleCleared]);
 
   const handleGoTo = useCallback((latitude: number, longitude: number) => {
     const location = { latitude, longitude };
-    selectedShape.current = null; // a point is now the selection, not an outline
+    removeShape();
+    setHasSelection(true);
     setTarget(location);
     setClickedLocation(location);
     onFieldSelected({
@@ -301,11 +437,12 @@ export default function MapView({
       longitude,
       selectionType: "point",
     });
-  }, [onFieldSelected]);
+  }, [onFieldSelected, removeShape]);
 
   const handleMapClick = useCallback((latitude: number, longitude: number) => {
     const location = { latitude, longitude };
-    selectedShape.current = null; // a point is now the selection, not an outline
+    removeShape();
+    setHasSelection(true);
     setClickedLocation(location);
     // Crucially: no setTarget() here. Clicking the map should not trigger
     // MapController.flyTo(), which was the source of the visual jump.
@@ -315,7 +452,7 @@ export default function MapView({
       longitude,
       selectionType: "point",
     });
-  }, [onFieldSelected]);
+  }, [onFieldSelected, removeShape]);
 
   const handleUseMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -367,16 +504,53 @@ export default function MapView({
 
         <MapResizeFix />
         <MapController target={target} />
-        <MapClickHandler onLocation={handleMapClick} disabled={isDrawing} />
+        <MapClickHandler onLocation={handleMapClick} disabled={tool !== "point"} />
         <DrawingTools
-          onFieldSelected={onFieldSelected}
-          onDrawingStateChange={handleDrawingStateChange}
-          onSelectionCleared={onSelectionCleared}
+          tool={tool}
+          onToolChange={setTool}
+          onAreaSelected={handleAreaSelected}
+          onShapeReplaced={handleCleared}
           initialOutline={initialOutline}
           selectedShape={selectedShape}
         />
         <LocationMarker location={clickedLocation} />
       </MapContainer>
+
+      <div className="map-tools">
+        <div className="map-tools-bar">
+          <div className="map-tools-switch" role="radiogroup" aria-label="Selection tool">
+            {TOOLS.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={tool === id}
+                aria-label={label}
+                title={label}
+                className={`map-tool${tool === id ? " active" : ""}`}
+                onClick={() => setTool(id)}
+              >
+                <Icon size={19} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+          <span className="map-tools-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className="map-tool map-tool-clear"
+            onClick={handleClear}
+            disabled={!hasSelection}
+            aria-label="Clear selection"
+            title="Clear selection"
+          >
+            <X size={19} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="map-tools-hint">
+          <strong>{activeTool.label}</strong>
+          {activeTool.hint}
+        </div>
+      </div>
 
       {coordinatesContainer === undefined ? (
         <div className="map-top-card">
@@ -399,7 +573,7 @@ export default function MapView({
       <div className="map-overlay">
         <div className="map-title">Field Explorer</div>
         <div className="map-subtitle">
-          Click once for point analysis, or use the polygon tools to measure a field.
+          Pick Point, Rectangle or Polygon on the left, then click or draw on the map.
           Satellite imagery is used as the basemap.
         </div>
 
