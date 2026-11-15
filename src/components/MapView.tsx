@@ -15,7 +15,7 @@ import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
 
 import type { FieldSelection } from "../types";
 import { outlineOf } from "../services/selection";
-import { MapPin, Pentagon, Square, X } from "lucide-react";
+import { MapPin, Minus, Pentagon, Plus, Square, X } from "lucide-react";
 import CoordinatesBox from "./CoordinatesBox";
 
 interface MapViewProps {
@@ -426,6 +426,19 @@ export default function MapView({
     longitude: number;
   } | null>(initialSelection?.selectionType === "point" ? initialSelection : null);
   const [tool, setTool] = useState<SelectionTool>("point");
+
+  // The Leaflet map, for the zoom buttons in the left island.
+  const [map, setMap] = useState<L.Map | null>(null);
+  const [zoom, setZoom] = useState<number | null>(null);
+  useEffect(() => {
+    if (!map) return;
+    const update = () => setZoom(map.getZoom());
+    update();
+    map.on("zoomend", update);
+    return () => {
+      map.off("zoomend", update);
+    };
+  }, [map]);
   const [hasSelection, setHasSelection] = useState(initialSelection !== null);
   const activeTool = TOOLS.find((option) => option.id === tool)!;
 
@@ -508,7 +521,8 @@ export default function MapView({
         maxZoom={20}
         scrollWheelZoom
         worldCopyJump
-        zoomControl
+        zoomControl={false}
+        ref={setMap}
         className="map"
       >
         <TileLayer
@@ -561,7 +575,6 @@ export default function MapView({
               </button>
             ))}
           </div>
-          <span className="map-tools-divider" aria-hidden="true" />
           <button
             type="button"
             className="map-tool map-tool-clear"
@@ -571,6 +584,27 @@ export default function MapView({
             title="Clear selection"
           >
             <X size={19} aria-hidden="true" />
+          </button>
+          <span className="map-tools-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className="map-tool"
+            onClick={() => map?.zoomIn()}
+            disabled={!map || zoom === null || zoom >= map.getMaxZoom()}
+            aria-label="Zoom in"
+            title="Zoom in"
+          >
+            <Plus size={19} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="map-tool"
+            onClick={() => map?.zoomOut()}
+            disabled={!map || zoom === null || zoom <= map.getMinZoom()}
+            aria-label="Zoom out"
+            title="Zoom out"
+          >
+            <Minus size={19} aria-hidden="true" />
           </button>
         </div>
         <div className="map-tools-hint">
