@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   CloudRain,
   Droplets,
   ExternalLink,
@@ -21,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 
 import MetricCard from "../components/MetricCard";
 import RotationCard, { cropSchedule } from "../components/RotationCard";
+import { yearComparison } from "../utils/yearComparison";
 import Accordion, { type AccordionItem } from "../components/Accordion";
 
 import { LAYERS, readLayers, saveLayers, sourcesFor } from "../data/layers";
@@ -215,6 +217,8 @@ export default function Analysis() {
 
   const [layers, setLayers] = useState<LayerId[]>(readLayers);
   const [scenario, setScenario] = useState<Scenario>({ deltaT: 0, rainPct: 0 });
+  // Rotation whose calendar and details are open (one at a time, chosen by the farmer).
+  const [selectedRotation, setSelectedRotation] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
   const layerKey = layers.join(",");
@@ -424,6 +428,15 @@ export default function Analysis() {
   const rotations = recommendation?.rotations ?? [];
   const top = rotations.find((r) => r.recommended);
   const current = rotations.find((r) => r.id === "current");
+  // Three options: the current / typical local rotation plus the two best alternatives.
+  const shownRotations = [
+    ...(current ? [current] : []),
+    ...rotations
+      .filter((r) => r.id !== "current")
+      .sort((x, y) => y.score - x.score)
+      .slice(0, current ? 2 : 3),
+  ];
+  const openRotation = shownRotations.find((r) => r.id === selectedRotation) ?? null;
   const cropFits = recommendation?.cropFits ?? [];
   const scenarioActive = scenario.deltaT !== 0 || scenario.rainPct !== 0;
   const verdict =
@@ -568,11 +581,50 @@ export default function Analysis() {
               specialists (greenhouses, hardy forage or grazing) are the better route for this climate.
             </p>
           )}
-          <div className="rotation-list">
-            {rotations.map((rotation, index) => (
-              <RotationCard key={rotation.id} rotation={rotation} rank={index + 1} collapsible={rotation.id !== "current"} />
-            ))}
-          </div>
+          {shownRotations.length > 0 && (
+            <>
+              <div className="rotation-picker" role="list">
+                {shownRotations.map((rotation, index) => {
+                  const isOpen = rotation.id === selectedRotation;
+                  return (
+                    <button
+                      key={rotation.id}
+                      type="button"
+                      role="listitem"
+                      className={`rotation-pick ${isOpen ? "open" : ""} ${rotation.recommended ? "recommended" : ""}`}
+                      onClick={() => setSelectedRotation(isOpen ? null : rotation.id)}
+                      aria-expanded={isOpen}
+                    >
+                      <span className="rotation-pick-rank">{index + 1}</span>
+                      <span className="rotation-pick-text">
+                        <strong>{rotation.name}</strong>
+                        <small>
+                          {[rotation.recommended ? "Best match for your priorities" : null, rotation.strategy]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </small>
+                      </span>
+                      <span className="rotation-pick-score">
+                        <b>{rotation.score}</b>/100
+                      </span>
+                      <ChevronDown size={18} className="rotation-pick-chevron" />
+                    </button>
+                  );
+                })}
+              </div>
+              {openRotation ? (
+                <div className="rotation-list">
+                  <RotationCard
+                    key={openRotation.id}
+                    rotation={openRotation}
+                    rank={shownRotations.indexOf(openRotation) + 1}
+                  />
+                </div>
+              ) : (
+                <p className="rotation-pick-hint">Tap a rotation to see its calendar and details.</p>
+              )}
+            </>
+          )}
         </>
       ),
     },
@@ -628,6 +680,11 @@ export default function Analysis() {
           </table>
         </>
       ),
+    },
+    {
+      id: "year",
+      title: "Was this year normal?",
+      render: () => <YearComparison a={a} />,
     },
     {
       id: "season",
@@ -874,6 +931,43 @@ function SeasonStrip({ a }: { a: FieldAnalysis }) {
 }
 
 const withUnit = (value: number, unit: string) => (unit === "%" ? `${value}%` : `${value} ${unit}`);
+
+function YearComparison({ a }: { a: FieldAnalysis }) {
+  const rows = yearComparison(a);
+  if (!rows.length) return <p className="faq-lead">There are not enough earlier years yet to compare with.</p>;
+  return (
+    <>
+      <p className="faq-lead">The last 12 months next to the average of earlier years at this field.</p>
+      <div className="year-compare">
+        {rows.map((row) => {
+          const max = Math.max(row.normal, row.current, 1);
+          return (
+            <div className="year-row" key={row.id}>
+              <span className="year-label">{row.label}</span>
+              <div className="year-bars">
+                <div className="year-bar-line">
+                  <span className="year-track">
+                    <i className="year-bar normal" style={{ width: `${(row.normal / max) * 100}%` }} />
+                  </span>
+                  <span>Normal {withUnit(row.normal, row.unit)}</span>
+                </div>
+                <div className="year-bar-line">
+                  <span className="year-track">
+                    <i className="year-bar current" style={{ width: `${(row.current / max) * 100}%` }} />
+                  </span>
+                  <span>This year {withUnit(row.current, row.unit)}</span>
+                </div>
+              </div>
+              <span className={`year-change ${row.change > 0 ? "up" : row.change < 0 ? "down" : ""}`}>
+                {row.normal === 0 && row.current === 0 ? "—" : Math.abs(row.change) < 1 ? "0%" : `${row.change > 0 ? "+" : ""}${row.change}%`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
 
 function Outlook({ a, onApply }: { a: FieldAnalysis; onApply: () => void }) {
   const p = a.extras.projection;
