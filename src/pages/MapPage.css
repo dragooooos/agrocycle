@@ -787,6 +787,10 @@ html[data-theme="dark"] .map-overlay {
   cursor: crosshair;
 }
 
+.leaflet-container.map-drawing.map-panning {
+  cursor: grabbing;
+}
+
 @media (max-width: 600px) {
   .map-tools-hint {
     display: none;

@@ -289,7 +289,19 @@ function DrawingTools({
         makeEditable(layer);
       };
 
+      // Leaflet's map dragging is off here (a left-drag draws), so pan with the
+      // middle mouse button ourselves, like the other tools allow.
+      let panFrom: L.Point | null = null;
+      const pointOf = (event: PointerEvent) => L.point(event.clientX, event.clientY);
+
       const down = (event: PointerEvent) => {
+        if (event.button === 1 && isOnMap(event)) {
+          event.preventDefault(); // no browser autoscroll
+          panFrom = pointOf(event);
+          container.setPointerCapture?.(event.pointerId);
+          container.classList.add("map-panning");
+          return;
+        }
         if (event.button !== 0 || !isOnMap(event)) return;
         if (phase === "placing") return; // second click: finished on release
         event.preventDefault(); // no text selection while dragging
@@ -301,6 +313,11 @@ function DrawingTools({
         container.setPointerCapture?.(event.pointerId);
       };
       const move = (event: PointerEvent) => {
+        if (panFrom) {
+          const point = pointOf(event);
+          map.panBy(panFrom.subtract(point), { animate: false });
+          panFrom = point;
+        }
         if (phase === "idle" || !start || !preview) return;
         preview.setBounds(L.latLngBounds(start, latLngOf(event)));
         if (phase === "pressing" && startPoint) {
@@ -309,11 +326,20 @@ function DrawingTools({
         }
       };
       const up = (event: PointerEvent) => {
+        if (event.button === 1 && panFrom) {
+          panFrom = null;
+          container.classList.remove("map-panning");
+          return;
+        }
         if (event.button !== 0) return;
         if (phase === "dragging" || phase === "placing") finish(latLngOf(event));
         else if (phase === "pressing") phase = "placing"; // a click: wait for the opposite corner
       };
 
+      const noAutoscroll = (event: MouseEvent) => {
+        if (event.button === 1) event.preventDefault();
+      };
+      container.addEventListener("mousedown", noAutoscroll);
       container.addEventListener("pointerdown", down);
       container.addEventListener("pointermove", move);
       container.addEventListener("pointerup", up);
@@ -323,10 +349,11 @@ function DrawingTools({
         return true;
       };
       const stopRectangle = () => {
+        container.removeEventListener("mousedown", noAutoscroll);
         container.removeEventListener("pointerdown", down);
         container.removeEventListener("pointermove", move);
         container.removeEventListener("pointerup", up);
-        container.classList.remove("map-drawing");
+        container.classList.remove("map-drawing", "map-panning");
         reset();
         map.dragging.enable();
         map.boxZoom.enable();
