@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 interface CoordinatesBoxProps {
   initialLatitude?: number;
   initialLongitude?: number;
-  /** `zoom` is optional: searched places pass one that fits them (city, village, region). */
   onGoTo: (latitude: number, longitude: number, zoom?: number) => void;
   onUseMyLocation?: () => void;
 }
@@ -18,13 +17,6 @@ interface Place {
   zoom: number;
 }
 
-/* ------------------------------------------------------------------ */
-/* Place search: OpenStreetMap Nominatim (cities, villages, regions,   */
-/* addresses; no key). Its usage policy forbids search-as-you-type and */
-/* allows 1 request/second across all users, so a search only runs    */
-/* when the user presses Enter or the search button.                   */
-/* ------------------------------------------------------------------ */
-
 interface NominatimResult {
   place_id: number;
   display_name: string;
@@ -35,10 +27,6 @@ interface NominatimResult {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/**
- * Zoom that fits a place's bounding box on a ~1200px-wide map.
- * (At zoom z a 1200px map spans about 1200 / 256 * 360 / 2^z ≈ 1690 / 2^z degrees.)
- */
 function zoomForBox(box?: [string, string, string, string]) {
   if (!box) return 12;
   const [south, north, west, east] = box.map(Number);
@@ -54,7 +42,6 @@ async function searchPlaces(query: string, signal: AbortSignal): Promise<Place[]
   const key = `osm:${query.toLowerCase()}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  // Stay under Nominatim's 1 request/second limit.
   const wait = lastNominatimCall + 1100 - Date.now();
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
   lastNominatimCall = Date.now();
@@ -76,10 +63,6 @@ async function searchPlaces(query: string, signal: AbortSignal): Promise<Place[]
   cache.set(key, places);
   return places;
 }
-
-/* ------------------------------------------------------------------ */
-/* Component                                                           */
-/* ------------------------------------------------------------------ */
 
 type SearchStatus = "idle" | "loading" | "done" | "error";
 
@@ -196,7 +179,6 @@ export default function CoordinatesBox({
           autoComplete="off"
           spellCheck={false}
           onChange={(event) => {
-            // A new query makes the previous matches stale.
             request.current?.abort();
             setQuery(event.target.value);
             setPlaces([]);
@@ -211,7 +193,6 @@ export default function CoordinatesBox({
           className="place-search-button"
           aria-label="Search"
           disabled={query.trim().length < 2 || status === "loading"}
-          // mousedown keeps focus in the field so the results list stays open
           onMouseDown={(event) => {
             event.preventDefault();
             runSearch();
@@ -230,7 +211,6 @@ export default function CoordinatesBox({
                   role="option"
                   aria-selected={index === active}
                   className={index === active ? "active" : ""}
-                  // mousedown (not click) so the input's blur does not close the list first
                   onMouseDown={(event) => {
                     event.preventDefault();
                     choose(place);

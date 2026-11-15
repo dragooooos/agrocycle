@@ -5,7 +5,6 @@ const THEME_EVENT = "farmrotate-themechange";
 
 interface ThemeToggleProps {
   className?: string;
-  /** Show a text label next to the icon (used in the sidebar). */
   showLabel?: boolean;
 }
 
@@ -23,7 +22,6 @@ export default function ThemeToggle({
     }
     setDark(document.documentElement.dataset.theme === "dark");
 
-    // Keep every toggle on screen in sync when one of them is clicked.
     const sync = () =>
       setDark(document.documentElement.dataset.theme === "dark");
     window.addEventListener(THEME_EVENT, sync);
@@ -45,7 +43,6 @@ export default function ThemeToggle({
   };
 
   const label = dark ? "Light mode" : "Dark mode";
-  // Short visible label keeps it as wide as the other nav buttons; the tooltip keeps the full text.
   const shortLabel = dark ? "Light" : "Dark";
 
   return (

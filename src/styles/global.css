@@ -1,17 +1,12 @@
-/* Global styles: theme variables, base elements, sidebar/layout, header,
-   theme toggle, buttons and anything shared by more than one page. */
-
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap");
 @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400..700;1,400..700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
-/* THEME TOKENS — the only place colour variables are defined */
 
 :root {
   font-family: "DM-Sans", system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
 
-  /* Light theme */
   --bg: #eef7f1;
   --surface: rgba(255, 255, 255, 0.88);
   --surface-solid: #ffffff;
@@ -31,7 +26,6 @@
   --shadow: 0 18px 50px rgba(26, 76, 50, 0.1);
   --radius: 22px;
 
-  /* Navigation bar: same colours as the map page's island (MapPage.css .map-island) */
   --nav-bg: rgba(248, 252, 249, .94);
   --nav-border: rgba(32, 89, 61, .14);
   --nav-shadow: 0 16px 45px rgba(20, 55, 38, .24);
@@ -62,7 +56,6 @@ html[data-theme="dark"] {
 
   --shadow: 0 20px 55px rgba(0, 0, 0, 0.42);
 
-  /* Navigation bar: same colours as the map page's island in dark mode */
   --nav-bg: rgba(13, 29, 21, .95);
   --nav-border: rgba(181, 224, 199, .18);
   --nav-shadow: 0 18px 50px rgba(0, 0, 0, .45);
@@ -437,11 +430,6 @@ html[data-theme="dark"] .theme-toggle:hover {
   background: #183728;
 }
 
-/* NAVIGATION: small floating bar at the top centre with the logo in the middle;
-   labels slide out on hover or keyboard focus.
-   Three columns (links · logo · links) where the outer two always share one width,
-   so the logo is the exact centre of the bar and the bar grows evenly around it. */
-
 .side-nav {
   position: fixed;
   top: 12px;
@@ -462,9 +450,6 @@ html[data-theme="dark"] .theme-toggle:hover {
   animation: sideNavIn .45s cubic-bezier(.22, 1, .36, 1) both;
 }
 
-/* Each half of the bar is a row of equal-width slots; with the two halves sharing
-   one width, every button is as wide as the widest label, so the bar stays
-   symmetric around the logo with no empty space at either end. */
 .side-nav-start,
 .side-nav-end {
   display: grid;
@@ -484,7 +469,6 @@ html[data-theme="dark"] .theme-toggle:hover {
   list-style: none;
 }
 
-/* Green circle logo, slightly larger than the 17px icons so it stands out. */
 .side-nav-logo {
   display: block;
   width: 28px;
@@ -523,7 +507,6 @@ html[data-theme="dark"] .theme-toggle:hover {
   place-items: center;
 }
 
-/* labels take no space until the bar is hovered or focused */
 .side-nav-label {
   max-width: 0;
   overflow: hidden;
@@ -560,8 +543,6 @@ html[data-theme="dark"] .theme-toggle:hover {
   .side-nav { animation: none; }
   .side-nav-label { transition: none; }
 }
-
-/* The bar floats over the page, so content needs no offset. */
 
 .app-content {
   min-width: 0;

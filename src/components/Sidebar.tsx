@@ -2,7 +2,6 @@ import { BarChart3, Home, Map } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 
-/** Pages can render their own sidebar actions into this element via a portal. */
 export const SIDE_NAV_ACTIONS_ID = "side-nav-actions";
 
 const startLinks = [
@@ -34,11 +33,6 @@ function NavItems({ items }: { items: typeof startLinks }) {
   );
 }
 
-/**
- * Small floating navigation bar at the top centre of the screen, with the
- * AgroCycle logo in the middle. Shows icons only; labels slide out while it is
- * hovered or focused, and the bar grows evenly on both sides so the logo stays put.
- */
 export default function Sidebar() {
   return (
     <nav className="side-nav" aria-label="Main navigation">

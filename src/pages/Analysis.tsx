@@ -762,8 +762,6 @@ export default function Analysis() {
           </div>
         </section>
 
-        {/* Field resilience as a folder: a tab on the top left of the card,
-            with the data selection beside it. */}
         <div className="folder resilience-folder">
           <div className="folder-top">
             <span className="eyebrow folder-tab">Field resilience</span>
@@ -837,7 +835,6 @@ export default function Analysis() {
                     )}
                   </li>
                 ) : (
-                  // The explanation stays folded away behind a small arrow.
                   <li key={f.id} className="finding">
                     <details>
                       <summary>
@@ -868,7 +865,6 @@ export default function Analysis() {
         )}
 
         {top && (
-          // A folder like the field resilience card: the score sits in the tab.
           <div className="folder rotation-folder">
             <div className="folder-top">
               <div className="folder-tab rotation-score" aria-label={`Score ${top.score} out of 100`}>

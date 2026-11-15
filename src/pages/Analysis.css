@@ -1,9 +1,3 @@
-/* Analysis page.
-   Flat and quiet: one hairline border per card, no shadows, gradients or glows,
-   plain text instead of pills, and a single spacing rhythm (8 / 16 / 24 px). */
-
-/* PAGE */
-
 body:has(.analysis-page) {
   background: var(--bg);
   animation: none;
@@ -25,7 +19,6 @@ body:has(.analysis-page)::before {
   gap: 16px;
 }
 
-/* the global `section { margin-bottom: 70px }` does not apply here */
 .analysis-page section {
   margin-bottom: 0;
 }
@@ -41,8 +34,6 @@ body:has(.analysis-page)::before {
 .analysis-page .primary-button:hover:not(:disabled) {
   background: var(--green-dark);
 }
-
-/* HEADER */
 
 .essentials-hero {
   display: flex;
@@ -88,8 +79,6 @@ body:has(.analysis-page)::before {
   font-weight: 600;
 }
 
-/* DATA CHOICES */
-
 .layer-bar {
   display: flex;
   flex-wrap: wrap;
@@ -128,8 +117,6 @@ body:has(.analysis-page)::before {
   opacity: .6;
 }
 
-/* CARDS */
-
 .essentials-card,
 .measurements-card,
 .suggestion-card,
@@ -158,7 +145,6 @@ body:has(.analysis-page)::before {
   font-size: 13px;
 }
 
-/* plain numbers instead of coloured rings */
 .resilience-score,
 .rotation-score {
   flex: none;
@@ -181,8 +167,6 @@ body:has(.analysis-page)::before {
   font-size: 13px;
 }
 
-/* FINDINGS */
-
 .findings {
   margin: 0;
   padding: 0;
@@ -200,14 +184,12 @@ body:has(.analysis-page)::before {
   padding-bottom: 0;
 }
 
-/* The finding itself ("Soil is wetter than usual") is the headline */
 .finding strong {
   font-size: 17px;
   font-weight: 700;
   line-height: 1.35;
 }
 
-/* Its explanation is folded away behind a small arrow */
 .finding summary {
   display: flex;
   align-items: center;
@@ -263,10 +245,6 @@ body:has(.analysis-page)::before {
   color: var(--text-muted);
 }
 
-/* SUGGESTION
-   Same layout as the field resilience card: score on the left, name and a
-   short comparison beside it; the crops follow as a row of steps. */
-
 .suggestion-crops {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -295,8 +273,6 @@ body:has(.analysis-page)::before {
   font-size: 12px;
   line-height: 1.45;
 }
-
-/* MORE DETAIL */
 
 .faq-heading {
   margin-bottom: 8px;
@@ -362,8 +338,6 @@ body:has(.analysis-page)::before {
   text-align: center;
 }
 
-/* SCENARIO SLIDERS */
-
 .scenario-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -426,8 +400,6 @@ body:has(.analysis-page)::before {
   width: 100%;
   accent-color: var(--green);
 }
-
-/* ROTATION CARDS */
 
 .rotation-list {
   display: grid;
@@ -678,8 +650,6 @@ body:has(.analysis-page)::before {
   text-decoration: underline;
 }
 
-/* CROP TABLE, OUTLOOK TABLE */
-
 .crop-table,
 .outlook-table {
   width: 100%;
@@ -740,14 +710,10 @@ body:has(.analysis-page)::before {
   font-size: 11px;
 }
 
-/* MEASUREMENTS */
-
 .measurements-card .eyebrow {
   margin-bottom: 12px;
 }
 
-/* Columns follow the number of measurements so the grid stays symmetric
-   (4 → 2×2, 6 → 3×2, 8 → 4×2 …). A shorter last row is centred. */
 .metric-grid {
   --cols: 3;
   --gap: 16px;
@@ -804,7 +770,6 @@ body:has(.analysis-page)::before {
   color: var(--text);
 }
 
-/* icon matches the value's cap height and sits on the same line */
 .metric-icon {
   flex: none;
   width: 0.85em;
@@ -835,8 +800,6 @@ body:has(.analysis-page)::before {
   font-size: 12px;
   font-weight: 600;
 }
-
-/* SEASON */
 
 .season-strip {
   display: grid;
@@ -899,8 +862,6 @@ body:has(.analysis-page)::before {
   text-align: center;
 }
 
-/* OUTLOOK */
-
 .odds-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -944,8 +905,6 @@ body:has(.analysis-page)::before {
 .cmip-card .primary-button {
   flex: none;
 }
-
-/* RELIABILITY, GLOSSARY, SOURCES */
 
 .smap-caveats {
   display: grid;
@@ -1052,8 +1011,6 @@ body:has(.analysis-page)::before {
   font-weight: 600;
 }
 
-/* LOADING, ERROR AND NOT-FARMABLE STATES */
-
 .analysis-state {
   max-width: 560px;
   margin: 8vh auto 0;
@@ -1131,10 +1088,6 @@ body:has(.analysis-page)::before {
   to { transform: rotate(360deg); }
 }
 
-/* FOLDER CARDS (field resilience, suggested rotation)
-   The card has a tab on its top left like a folder; whatever sits beside the
-   tab (the data selection chips, or a caption) lines up with it. */
-
 .folder-top {
   display: flex;
   align-items: flex-end;
@@ -1147,7 +1100,7 @@ body:has(.analysis-page)::before {
   z-index: 1;
   flex: none;
   align-self: flex-end;
-  margin: 0 0 -1px; /* sits over the card's top border so tab and card join */
+  margin: 0 0 -1px;
   padding: 12px 22px 11px;
   text-align: left;
   background: var(--surface-solid);
@@ -1166,16 +1119,14 @@ body:has(.analysis-page)::before {
   padding-bottom: 1px;
 }
 
-/* Suggested rotation: the score is the tab, the title a caption beside it */
 .rotation-folder {
-  margin-top: 16px; /* more room above, so the tab doesn't crowd the card above */
+  margin-top: 16px;
 }
 
 .folder-tab.rotation-score {
   padding: 6px 22px 8px;
 }
 
-/* The score is the one thing in this card that should jump out */
 .folder-tab.rotation-score strong {
   color: var(--green);
   font-size: 44px;
@@ -1199,8 +1150,6 @@ body:has(.analysis-page)::before {
 }
 
 @media (max-width: 640px) {
-  /* Narrow screens: the chips go above, the tab stays joined to the card
-     (the rotation caption is short enough to stay beside its tab) */
   .resilience-folder .folder-top {
     flex-direction: column-reverse;
     align-items: flex-start;
@@ -1215,8 +1164,6 @@ body:has(.analysis-page)::before {
     align-self: flex-start;
   }
 }
-
-/* SMALL SCREENS */
 
 @media (max-width: 760px) {
   .page-container {
@@ -1518,10 +1465,6 @@ html[data-theme="dark"] .metric-number.tone-bad { color: #f39a83; }
   }
 }
 
-/* SECTION LABELS
-   Same type as the panel titles in the field map's right-hand island
-   (Plus Jakarta Sans, regular, normal case), a little larger here. */
-
 .analysis-page .eyebrow {
   display: block;
   margin-bottom: 6px;
@@ -1535,8 +1478,6 @@ html[data-theme="dark"] .metric-number.tone-bad { color: #f39a83; }
   text-transform: none;
 }
 
-/* Centred at the top of each card. Some cards lay their content out in a row,
-   so the label takes the full first line there. */
 .analysis-page .eyebrow {
   flex: 1 0 100%;
   align-self: stretch;
@@ -1558,10 +1499,6 @@ html[data-theme="dark"] .analysis-page .eyebrow {
   color: #ffffff;
 }
 
-/* HEADINGS
-   Same font as the buttons on the field map page (the page's base font)
-   instead of the global serif. */
-
 .analysis-page h1,
 .analysis-page h2,
 .analysis-page h3,
@@ -1569,10 +1506,6 @@ html[data-theme="dark"] .analysis-page .eyebrow {
   font-family: inherit;
   letter-spacing: -0.01em;
 }
-
-/* CENTRED CROP STEPS (suggested rotation)
-   Trial layout: each crop step is centred, with thin dividers between steps
-   instead of the green line on the left. Delete this block to go back. */
 
 .suggestion-crops li {
   align-items: center;
