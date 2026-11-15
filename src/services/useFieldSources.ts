@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SourceId } from "../types";
 import { getSourceState, hasNoSoil, resetSource, startSource, type SourceState } from "./sourceStore";
 
@@ -29,11 +29,20 @@ const snapshotOf = (lat: number, lon: number) =>
  *    extra layers appear instantly when switched on.
  * If the soil service itself fails (network, outage), loading continues and
  * the land check falls back to NASA POWER.
+ *
+ * `priority` only decides what loads first. Changing it (toggling indicators on
+ * the analysis page) never restarts loading: it only starts sources that have
+ * not been requested yet. Loaded, loading and failed sources are left alone;
+ * failed ones are retried only through `retry`.
  */
 export function useFieldSources(lat: number | undefined, lon: number | undefined, priority: SourceId[]) {
   const [snapshot, setSnapshot] = useState<Record<SourceId, SourceState> | null>(null);
   const priorityKey = priority.join(",");
+  // Read inside the loading sequence without making it re-run when the selection changes.
+  const priorityRef = useRef(priority);
+  priorityRef.current = priority;
 
+  // Full loading sequence: once per location.
   useEffect(() => {
     if (lat === undefined || lon === undefined) return;
     let active = true;
@@ -46,8 +55,9 @@ export function useFieldSources(lat: number | undefined, lon: number | undefined
       refresh();
       if (!active || hasNoSoil(lat, lon)) return;
 
-      const first = ALL.filter((id) => id !== "soil" && priority.includes(id));
-      const rest = ALL.filter((id) => id !== "soil" && !priority.includes(id));
+      const chosen = priorityRef.current;
+      const first = ALL.filter((id) => id !== "soil" && chosen.includes(id));
+      const rest = ALL.filter((id) => id !== "soil" && !chosen.includes(id));
       first.forEach((id) => startSource(id, lat, lon).finally(refresh));
       startSource("power", lat, lon).finally(() => {
         if (!active) return;
@@ -56,6 +66,26 @@ export function useFieldSources(lat: number | undefined, lon: number | undefined
       });
     });
 
+    return () => {
+      active = false;
+    };
+  }, [lat, lon]);
+
+  // A newly selected layer whose sources were still queued (waiting for the climate
+  // data) starts straight away. Sources that were ever requested are not touched.
+  useEffect(() => {
+    if (lat === undefined || lon === undefined) return;
+    const soil = getSourceState("soil", lat, lon).status;
+    // Before the land check has settled, the sequence above decides what to load.
+    if (soil === "idle" || soil === "loading" || hasNoSoil(lat, lon)) return;
+    let active = true;
+    priority
+      .filter((id) => getSourceState(id, lat, lon).status === "idle")
+      .forEach((id) =>
+        startSource(id, lat, lon).finally(() => {
+          if (active) setSnapshot(snapshotOf(lat, lon));
+        }),
+      );
     return () => {
       active = false;
     };
