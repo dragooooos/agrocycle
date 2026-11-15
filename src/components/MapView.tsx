@@ -17,6 +17,13 @@ import type { FieldSelection } from "../types";
 import { outlineOf } from "../services/selection";
 import { MapPin, Minus, Pentagon, Plus, Square, X } from "lucide-react";
 import CoordinatesBox from "./CoordinatesBox";
+import { prefetchZoomOut } from "../utils/tilePrefetch";
+
+const IMAGERY_TILES =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const BORDER_TILES =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
+const MAX_NATIVE_ZOOM = 19;
 
 interface MapViewProps {
   onFieldSelected: (selection: FieldSelection) => void;
@@ -31,6 +38,39 @@ interface MapViewProps {
    * Pass null while that panel is closed.
    */
   coordinatesContainer?: HTMLElement | null;
+}
+
+/**
+ * Never show past the top or bottom edge of the world (the imagery ends at
+ * about 85° north and south). Sideways the world repeats, so only latitude is
+ * limited, and the lowest zoom is raised just enough for the world to be at
+ * least as tall as the map, for any window height.
+ */
+const WORLD_EDGE_LAT = 85.0511;
+const FLOOR_ZOOM = 2;
+
+function WorldLimits() {
+  const map = useMap();
+
+  useEffect(() => {
+    // Huge longitude range = no east-west limit (the world repeats there).
+    map.setMaxBounds(L.latLngBounds([-WORLD_EDGE_LAT, -1e6], [WORLD_EDGE_LAT, 1e6]));
+    map.options.maxBoundsViscosity = 1; // a hard edge, no rubber-banding past it
+
+    const fitMinZoom = () => {
+      const height = map.getSize().y;
+      if (!height) return;
+      // At zoom z the world is 256 * 2^z pixels tall.
+      map.setMinZoom(Math.max(FLOOR_ZOOM, Math.ceil(Math.log2(height / 256))));
+    };
+    fitMinZoom();
+    map.on("resize", fitMinZoom);
+    return () => {
+      map.off("resize", fitMinZoom);
+    };
+  }, [map]);
+
+  return null;
 }
 
 function MapResizeFix() {
@@ -430,13 +470,18 @@ export default function MapView({
   // The Leaflet map, for the zoom buttons in the left island.
   const [map, setMap] = useState<L.Map | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
+
+  // Runs each time the visible imagery has finished loading.
+  const prefetchTiles = useCallback(() => {
+    if (map) prefetchZoomOut(map, [IMAGERY_TILES, BORDER_TILES], MAX_NATIVE_ZOOM);
+  }, [map]);
   useEffect(() => {
     if (!map) return;
     const update = () => setZoom(map.getZoom());
     update();
-    map.on("zoomend", update);
+    map.on("zoomend zoomlevelschange", update);
     return () => {
-      map.off("zoomend", update);
+      map.off("zoomend zoomlevelschange", update);
     };
   }, [map]);
   const [hasSelection, setHasSelection] = useState(initialSelection !== null);
@@ -517,7 +562,7 @@ export default function MapView({
         {...(initialBounds
           ? { bounds: initialBounds, boundsOptions: { padding: [60, 60] as [number, number], maxZoom: 18 } }
           : { center: [defaultLocation.latitude, defaultLocation.longitude] as [number, number], zoom: 16 })}
-        minZoom={2}
+        minZoom={FLOOR_ZOOM}
         maxZoom={20}
         scrollWheelZoom
         worldCopyJump
@@ -525,25 +570,37 @@ export default function MapView({
         ref={setMap}
         className="map"
       >
+        {/* Loading strategy (see also utils/tilePrefetch.ts):
+            - updateWhenZooming off: during a zoom animation no tiles are requested
+              for the in-between levels, only for the level you land on;
+            - keepBuffer: tiles just outside the screen stay loaded, so panning
+              back and forth doesn't fetch them again;
+            - once the screen has loaded, the next two levels out are prefetched. */}
         <TileLayer
           attribution="Imagery © Esri, Maxar, Earthstar Geographics"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          maxNativeZoom={19}
+          url={IMAGERY_TILES}
+          maxNativeZoom={MAX_NATIVE_ZOOM}
           maxZoom={20}
+          updateWhenZooming={false}
+          keepBuffer={4}
+          eventHandlers={{ load: prefetchTiles }}
         />
 
         {/* Country and region borders (plus place names) as pre-rendered Esri
             tiles: same provider as the imagery, so it costs almost nothing to draw. */}
         <TileLayer
           attribution="Boundaries © Esri, HERE, Garmin, OpenStreetMap contributors"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-          maxNativeZoom={19}
+          url={BORDER_TILES}
+          maxNativeZoom={MAX_NATIVE_ZOOM}
           maxZoom={20}
+          updateWhenZooming={false}
+          keepBuffer={4}
           opacity={0.85}
           zIndex={2}
         />
 
         <MapResizeFix />
+        <WorldLimits />
         <MapController target={target} />
         <MapClickHandler onLocation={handleMapClick} disabled={tool !== "point"} />
         <DrawingTools
