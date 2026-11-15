@@ -29,7 +29,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MapView from "../components/MapView";
 import type { AreaUnit, FarmerConstraints, FieldSelection, IndicatorId, PriorityId } from "../types";
-import { CROP_BY_ID, SELECTABLE_CROPS } from "../data/crops";
+import { SELECTABLE_CROPS } from "../data/crops";
 import { readIndicators } from "../data/layers";
 import { getSourceState, startSource } from "../services/sourceStore";
 import { readSelection, saveSelection } from "../services/selection";
@@ -37,7 +37,11 @@ import { readSelection, saveSelection } from "../services/selection";
 const readConstraints = (): FarmerConstraints => {
   try {
     const raw = sessionStorage.getItem("farmrotate:constraints");
-    if (raw) return { irrigation: false, livestock: false, currentCrops: [], ...JSON.parse(raw) };
+    if (raw) {
+      const saved: FarmerConstraints = { irrigation: false, livestock: false, currentCrops: [], ...JSON.parse(raw) };
+      // Drop any duplicate crops saved before duplicates were blocked.
+      return { ...saved, currentCrops: Array.from(new Set(saved.currentCrops)) };
+    }
   } catch {
     // ignore
   }
@@ -168,18 +172,16 @@ export default function MapPage() {
   useEffect(() => saveJson("farmrotate:indicators", indicators), [indicators]);
   useEffect(() => saveJson("farmrotate:constraints", constraints), [constraints]);
 
-  const addCrop = (id: string) => {
+  // Click a crop to add it, click it again to remove it (max 4, no duplicates).
+  const toggleCrop = (id: string) => {
     if (!id) return;
-    setConstraints((current) =>
-      current.currentCrops.length >= 4 ? current : { ...current, currentCrops: [...current.currentCrops, id] },
-    );
+    setConstraints((current) => {
+      if (current.currentCrops.includes(id))
+        return { ...current, currentCrops: current.currentCrops.filter((crop) => crop !== id) };
+      if (current.currentCrops.length >= 4) return current;
+      return { ...current, currentCrops: [...current.currentCrops, id] };
+    });
   };
-
-  const removeCrop = (index: number) =>
-    setConstraints((current) => ({
-      ...current,
-      currentCrops: current.currentCrops.filter((_, i) => i !== index),
-    }));
 
   const toggleIndicator = (id: IndicatorId) => {
     setIndicators((current) =>
@@ -354,28 +356,6 @@ export default function MapPage() {
                 </button>
               </div>
 
-              {constraints.currentCrops.length > 0 && (
-                <>
-                  <div className="farm-section-heading">
-                    <span>Your rotation</span>
-                    <div className="indicator-actions">
-                      <button onClick={() => setConstraints({ ...constraints, currentCrops: [] })}>Clear</button>
-                    </div>
-                  </div>
-                  <div className="crop-chips">
-                    {constraints.currentCrops.map((id, index) => (
-                      <span key={`${id}-${index}`} className="crop-chip">
-                        <span className="crop-chip-step">{index + 1}</span>
-                        {CROP_BY_ID[id]?.emoji} {CROP_BY_ID[id]?.name ?? id}
-                        <button type="button" aria-label="Remove crop" onClick={() => removeCrop(index)}>
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-
               <div className="farm-section-heading">
                 <span>Add crops</span>
               </div>
@@ -387,9 +367,16 @@ export default function MapPage() {
                     <button
                       key={crop.id}
                       className={inRotation ? "mini-priority active" : "mini-priority"}
-                      onClick={() => addCrop(crop.id)}
-                      disabled={full}
-                      title={full ? "Rotation is full: remove a crop first" : `Add ${crop.name}`}
+                      onClick={() => toggleCrop(crop.id)}
+                      disabled={full && !inRotation}
+                      aria-pressed={inRotation}
+                      title={
+                        inRotation
+                          ? `Remove ${crop.name}`
+                          : full
+                            ? "Rotation is full: unselect a crop first"
+                            : `Add ${crop.name}`
+                      }
                     >
                       <span className="farm-crop-emoji" aria-hidden="true">{crop.emoji}</span>
                       {crop.name}

@@ -1595,6 +1595,12 @@ html[data-theme="dark"] .soil-check.none { color: #f2a283; }
   opacity: 0.45;
 }
 
+/* Crops already in the rotation stay clearly highlighted, just not clickable. */
+.farm-crop-grid .mini-priority.active:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
 .farm-crop-emoji {
   font-size: 14px;
   line-height: 1;
