@@ -1,8 +1,3 @@
-/* NOT IMPORTED ANYWHERE.
-   Selectors from the old index.css that reference classes no rendered component uses
-   (older landing/hero/workflow layouts, the unused FarmerPriorities component, etc.).
-   Kept only for reference — safe to delete. */
-
 /* HEADER */
 
 .brand-icon {

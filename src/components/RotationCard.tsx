@@ -13,13 +13,8 @@ interface RotationCardProps {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTH_LETTERS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 
-/** The same line can be generated twice (e.g. one crop in years 1 and 3); show it once. */
 const unique = (lines: string[] = []) => [...new Set(lines)];
 
-/**
- * Planting and harvest month for every crop in the rotation, listed once each.
- * A segment's months are stored in growing order, so the first is sowing and the last is harvest.
- */
 export function cropSchedule(years: RotationYear[] = []) {
   const seen = new Set<string>();
   const out: { name: string; plant: string; harvest: string; wholeYear: boolean }[] = [];
@@ -156,7 +151,6 @@ function RotationCalendar({ years }: { years: RotationYear[] }) {
           <span>{year.label}</span>
           {MONTH_LETTERS.map((_, month) => {
             const segment = year.segments.find((seg) => seg.months.includes(month));
-            // Label each crop once, in the first month of its run, stretched across the months it occupies.
             const startsHere = segment && (month === 0 || !segment.months.includes(month - 1));
             let run = 0;
             while (segment && month + run < 12 && segment.months.includes(month + run)) run += 1;

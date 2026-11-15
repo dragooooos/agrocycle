@@ -2,21 +2,6 @@ import { useEffect, useRef } from "react";
 import type { Material, Mesh, MeshStandardMaterial, Object3D } from "three";
 import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 
-/**
- * Interactive 3D Earth for the landing page.
- *
- * Loading is arranged so the globe never pops in half-ready:
- * 1. three.js, its GLTF loader and /earth.glb are fetched at the same time
- *    (index.html also starts the model download early on the home page).
- *    three.js is imported on demand, so Vite puts it in its own chunk and
- *    other pages never download it.
- * 2. The scene is built and its textures and shaders are sent to the GPU
- *    while the canvas is still invisible.
- * 3. Only then does the mount get `is-ready`, which fades the canvas in (Home.css).
- *
- * The model's textures are WebP (EXT_texture_webp), so the file is ~0.8 MB.
- */
-
 const EARTH_GLB = "/earth.glb";
 
 const FALLBACK_HTML = `
@@ -61,7 +46,6 @@ export default function EarthScene() {
       const mount = mountRef.current;
       if (!mount) return;
 
-      // All three downloads run in parallel instead of one after another.
       const loaded = await Promise.all([
         import("three"),
         import("three/addons/loaders/GLTFLoader.js"),
@@ -107,7 +91,6 @@ export default function EarthScene() {
       globeGroup.rotation.set(-0.25, 0.15, 0.15);
       scene.add(globeGroup);
 
-      // Orbit ring gives the globe some spatial context without competing with the hero copy.
       const orbit = new THREE.Mesh(
         new THREE.TorusGeometry(1.85, 0.009, 8, 180),
         new THREE.MeshBasicMaterial({ color: 0x63d69a, transparent: true, opacity: 0.34 }),
@@ -200,7 +183,6 @@ export default function EarthScene() {
         renderer.domElement.remove();
       };
 
-      // Decode the model (textures are decoded off the main thread by the loader).
       let gltf: GLTF;
       try {
         gltf = await new Promise<GLTF>((resolve, reject) => new GLTFLoader().parse(modelData, "", resolve, reject));
@@ -220,8 +202,6 @@ export default function EarthScene() {
       model.rotation.set(0.06, -0.35, 0.08);
       globeGroup.add(model);
 
-      // Upload textures and compile shaders now, while the canvas is still invisible,
-      // so the first visible frame does not stall.
       model.traverse((object) => {
         materialsOf(object).forEach((material) => {
           const map = (material as MeshStandardMaterial).map;
@@ -231,7 +211,6 @@ export default function EarthScene() {
       try {
         await renderer.compileAsync(scene, camera);
       } catch {
-        // compileAsync is an optimisation only; rendering compiles on demand anyway.
       }
       if (disposed) return;
 
@@ -240,14 +219,12 @@ export default function EarthScene() {
         if (!dragging) globeGroup.rotation.y += 0.0011;
         orbit.rotation.y += 0.0025;
         stars.rotation.y += 0.00008;
-        // Slight idle motion makes the globe feel suspended in space.
         globeGroup.position.y = Math.sin(Date.now() * 0.0008) * 0.035;
         renderer.render(scene, camera);
         animationFrame = requestAnimationFrame(animate);
       };
 
       animate();
-      // Reveal after the first complete frame has been drawn.
       requestAnimationFrame(() => {
         if (!disposed) mount.classList.add("is-ready");
       });

@@ -20,10 +20,8 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-    <!-- Map imagery server (MapView.tsx): open the connection early so the first tiles start sooner. -->
     <link rel="preconnect" href="https://server.arcgisonline.com" />
 
-    <!-- Home page only: start downloading the 3D globe model (EarthScene.tsx) before the app has loaded. -->
     <script>
       if (location.pathname === "/") {
         const link = document.createElement("link");

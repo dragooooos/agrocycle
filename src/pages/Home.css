@@ -1,12 +1,9 @@
-/* Home (landing) page styles — Home.tsx, EarthScene.tsx */
-
 /* IMMERSIVE LANDING */
 
 .earth-scene { width: 100%; height: 100%; position: relative; z-index: 2; }
 
 .earth-scene canvas { width: 100% !important; height: 100% !important; display: block; }
 
-/* The globe stays invisible until EarthScene has loaded and drawn it, then fades in. */
 .earth-scene canvas { opacity: 0; transition: opacity .9s ease; }
 .earth-scene.is-ready canvas { opacity: 1; }
 
@@ -126,7 +123,6 @@ html[data-theme="dark"] .satellite-fallback small {
   text-shadow: 0 4px 30px rgba(0, 0, 0, .35);
 }
 
-/* Stays white in both themes: it sits on the dark Earth backdrop. */
 .landing-stage-copy .hero-description {
   max-width: 600px;
   margin: 0 0 34px;

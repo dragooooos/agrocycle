@@ -44,7 +44,6 @@ const readConstraints = (): FarmerConstraints => {
   return { irrigation: false, livestock: false, currentCrops: [] };
 };
 
-/** Saved priorities for this tab, keeping only known ones. */
 const readPriorities = (): PriorityId[] => {
   try {
     const raw = sessionStorage.getItem("farmrotate:priorities");
@@ -53,7 +52,6 @@ const readPriorities = (): PriorityId[] => {
       return parsed.filter((id): id is PriorityId => priorityOptions.some((option) => option.id === id));
     }
   } catch {
-    // ignore: fall back to the defaults
   }
   return ["water", "soil"];
 };
@@ -62,7 +60,6 @@ const saveJson = (key: string, value: unknown) => {
   try {
     sessionStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // Storage unavailable: the choice still works on this page.
   }
 };
 
@@ -117,7 +114,6 @@ type PanelId = "location" | "priorities" | "indicators" | "farm";
 
 export default function MapPage() {
   const navigate = useNavigate();
-  // The selection survives a trip to the analysis page and back (see services/selection.ts).
   const [field, setField] = useState<FieldSelection | null>(readSelection);
   const [initialSelection] = useState(field);
   const clearSelection = useCallback(() => setField(null), []);
@@ -127,7 +123,6 @@ export default function MapPage() {
   }, [field]);
   const [showContinueHint, setShowContinueHint] = useState(false);
 
-  // The first time someone selects a location, point at the continue button once.
   useEffect(() => {
     if (!field) return;
     const key = "agrocycle:continue-hint-seen";
@@ -135,7 +130,7 @@ export default function MapPage() {
       if (localStorage.getItem(key)) return;
       localStorage.setItem(key, "1");
     } catch {
-      return; // storage unavailable: skip the hint rather than repeat it every time
+      return;
     }
     setShowContinueHint(true);
     const timer = setTimeout(() => setShowContinueHint(false), 7000);
@@ -164,14 +159,11 @@ export default function MapPage() {
   // Start the soil lookup as soon as a point is chosen; the analysis page reuses this result.
   useEffect(() => {
     if (!field) return;
-    // The restored selection from before the analysis page: don't ask again for a
-    // soil check that already failed there (Retry on the analysis page does that).
     if (field === initialSelection && getSourceState("soil", field.latitude, field.longitude).status === "error") return;
     startSource("soil", field.latitude, field.longitude);
   }, [field, initialSelection]);
   const [constraints, setConstraints] = useState<FarmerConstraints>(readConstraints);
 
-  // Keep the panel choices too, so the whole map page comes back as it was left.
   useEffect(() => saveJson("farmrotate:priorities", priorities), [priorities]);
   useEffect(() => saveJson("farmrotate:indicators", indicators), [indicators]);
   useEffect(() => saveJson("farmrotate:constraints", constraints), [constraints]);
@@ -217,9 +209,8 @@ export default function MapPage() {
 
     saveSelection({ ...field, areaUnit: unit });
     try {
-      sessionStorage.setItem("farmrotate:note", ""); // plain text, read as-is by the analysis page
+      sessionStorage.setItem("farmrotate:note", "");
     } catch {
-      // ignore
     }
     navigate("/analysis");
   };
@@ -524,7 +515,6 @@ export default function MapPage() {
                 aria-label="Continue to analysis"
                 title={field ? "Continue to analysis" : "Select a point or field first"}
               >
-                {/* Same icon as "Analysis" in the top navigation: this button goes there. */}
                 <BarChart3 size={19} />
               </button>
             </div>

@@ -6,7 +6,6 @@ interface MetricCardProps {
   value: string;
   description: string;
   trend?: number | null;
-  /** Text shown for the change instead of the default "n%". */
   trendText?: string;
   /** Colours the value: green = fine, yellow = watch, red = concern. */
   tone?: MetricTone;

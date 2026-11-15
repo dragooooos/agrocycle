@@ -17,12 +17,6 @@ const ALL: SourceId[] = [
   "openet",
 ];
 
-/**
- * Starts a source unless it already failed for this location in this session.
- * Moving between the map and the analysis page then sends no new requests for
- * an unchanged selection; failed sources are retried with `retry` (the page's
- * Retry button) or after a reload.
- */
 const startUnlessFailed = (id: SourceId, lat: number, lon: number) =>
   getSourceState(id, lat, lon).status === "error" ? Promise.resolve() : startSource(id, lat, lon);
 
@@ -47,11 +41,9 @@ const snapshotOf = (lat: number, lon: number) =>
 export function useFieldSources(lat: number | undefined, lon: number | undefined, priority: SourceId[]) {
   const [snapshot, setSnapshot] = useState<Record<SourceId, SourceState> | null>(null);
   const priorityKey = priority.join(",");
-  // Read inside the loading sequence without making it re-run when the selection changes.
   const priorityRef = useRef(priority);
   priorityRef.current = priority;
 
-  // Full loading sequence: once per location.
   useEffect(() => {
     if (lat === undefined || lon === undefined) return;
     let active = true;
@@ -80,12 +72,9 @@ export function useFieldSources(lat: number | undefined, lon: number | undefined
     };
   }, [lat, lon]);
 
-  // A newly selected layer whose sources were still queued (waiting for the climate
-  // data) starts straight away. Sources that were ever requested are not touched.
   useEffect(() => {
     if (lat === undefined || lon === undefined) return;
     const soil = getSourceState("soil", lat, lon).status;
-    // Before the land check has settled, the sequence above decides what to load.
     if (soil === "idle" || soil === "loading" || hasNoSoil(lat, lon)) return;
     let active = true;
     priority
